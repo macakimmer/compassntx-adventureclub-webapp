@@ -12,6 +12,7 @@ by Google Cloud Firestore and deployable to Cloud Run.
 - Embedded kids ministry Google Calendar
 - Download printable PDF reports
 - Teacher-only management controls protected by an environment-variable PIN
+- Teacher-only export of current Firestore progress as `progress.json`
 
 ## Run locally
 
@@ -43,6 +44,10 @@ The Calendar page embeds the configured Google Calendar. The calendar must be
 shared publicly or with the intended viewers for events to appear in the
 embed. Override the default calendar or timezone with `GOOGLE_CALENDAR_ID` and
 `CALENDAR_TIMEZONE` if needed.
+
+`progress.json` is an initial roster template. Firestore remains the source of
+truth for progress; enable Teacher Mode on the Dashboard and use **Download
+current progress JSON** to export the latest synchronized snapshot.
 
 ## Deploy to Cloud Run
 
@@ -86,6 +91,8 @@ gcloud run deploy verse-tracker \
     --service-account="verse-tracker@$PROJECT_ID.iam.gserviceaccount.com" \
     --set-env-vars="TEACHER_PIN=replace-with-a-secret,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,ESV_API_TOKEN=your-esv-api-token" \
     --allow-unauthenticated
+
+gcloud run deploy ac-webapp --source . --region us-central1 --allow-unauthenticated
 ```
 
 Use Secret Manager rather than plain environment variables for the teacher PIN

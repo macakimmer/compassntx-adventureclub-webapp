@@ -181,6 +181,8 @@ def get_esv_text(reference):
 
 
 def esv_reference(reference):
+    if not reference:
+        return ""
     text = html.escape(get_esv_text(reference))
     label = html.escape(reference)
     return f'<span class="esv-reference" tabindex="0">{label}<span class="esv-tooltip">{text}</span></span>'
@@ -353,7 +355,7 @@ else:
     is_verified = False
 
 st.title(f"📖 {APP_TITLE}")
-page = st.sidebar.radio("Navigate", ["Dashboard", "Record Progress", "Lesson Reference", "Calendar", "Manage Kids", "Reports"])
+page = st.sidebar.radio("Navigate", ["Dashboard", "Record Progress", "Lesson Reference", "Calendar", "Manage Kids"])
 
 if page == "Calendar":
     render_calendar()
@@ -375,7 +377,17 @@ elif page == "Dashboard":
     roster_groups = load_roster_groups()
     for kid in kids:
         kid["program_group"] = kid.get("program_group") or roster_groups.get(kid.get("name"), "Unknown")
-    group_filter = st.selectbox("Program", ["All", "Trackers", "Scouts", "Trailblazers"])
+    class_order = {"Trackers": 0, "Scouts": 1, "Trailblazers": 2}
+    groups = sorted(
+        {kid.get("program_group") for kid in kids if kid.get("program_group")},
+        key=lambda class_name: (
+            class_order.get(class_name.rstrip("1234567890"), len(class_order)),
+            int(class_name[len(class_name.rstrip("1234567890")): ] or 0),
+            class_name,
+        ),
+    )
+    groups.append("All")
+    group_filter = st.selectbox("Group", groups)
     filtered_kids = [kid for kid in kids if group_filter == "All" or kid.get("program_group") == group_filter]
     filtered_kid_ids = {kid["id"] for kid in filtered_kids}
     filtered_prog_df = prog_df[prog_df["kid_id"].isin(filtered_kid_ids)].copy() if not prog_df.empty else prog_df
@@ -452,41 +464,23 @@ elif page == "Manage Kids":
                 update_record("kids", kid["id"], {"active": 0 if kid.get("active", 1) else 1})
                 st.rerun()
 
-
 elif page == "Record Progress":
     all_kids = [kid for kid in records("kids", "name") if kid.get("active", 1)]
-    classes = sorted({kid.get("program_group") for kid in all_kids if kid.get("program_group")})
-    if not classes:
+    class_order = {"Trackers": 0, "Scouts": 1, "Trailblazers": 2}
+    classes = sorted(
+        {kid.get("program_group") for kid in all_kids if kid.get("program_group")},
+        key=lambda class_name: (
+            class_order.get(class_name.rstrip("1234567890"), len(class_order)),
+            int(class_name[len(class_name.rstrip("1234567890")): ] or 0),
+            class_name,
+        ),
+    )
+    classes.append("All")
+    if len(classes) == 1:
         st.info("Sync the roster or add a kid with a program group first.")
     else:
-        selected_class = st.selectbox("Group / Class", classes)
-        class_kids = [kid for kid in all_kids if kid.get("program_group") == selected_class]
-        selected_date = st.date_input("Attendance date", value=date.today())
-        date_iso = selected_date.isoformat()
-        attendance = {
-            row["kid_id"]: row
-            for row in records("attendance")
-            if row.get("date_recorded") == date_iso and row.get("kid_id") in {kid["id"] for kid in class_kids}
-        }
-
-        st.subheader(f"Attendance: {selected_class}")
-        with st.form("record_attendance"):
-            attendance_results = {}
-            for kid in class_kids:
-                attendance_results[kid["id"]] = st.checkbox(
-                    kid["name"],
-                    value=bool(attendance.get(kid["id"], {}).get("present", 0)),
-                    key=f"attendance_{selected_class}_{date_iso}_{kid['id']}",
-                )
-            if st.form_submit_button("Save Attendance"):
-                for kid in class_kids:
-                    kid_id = kid["id"]
-                    update_record(
-                        "attendance",
-                        f"att_{kid_id}_{date_iso}",
-                        {"kid_id": kid_id, "date_recorded": date_iso, "present": int(attendance_results[kid_id])},
-                    )
-                st.success(f"Attendance saved for {selected_date.strftime('%B %-d, %Y')}.")
+        selected_class = st.selectbox("Group", classes)
+        class_kids = all_kids if selected_class == "All" else [kid for kid in all_kids if kid.get("program_group") == selected_class]
 
         selected_kid_id = st.selectbox(
             "Kid progress",
@@ -502,25 +496,29 @@ elif page == "Record Progress":
             if row.get("kid_id") == selected_kid_id
         }
         bonus_classes = {"Scouts1", "Scouts2", "Trailblazers1", "Trailblazers2"}
-        bonus_enabled = selected_class in bonus_classes
+        selected_kid = next(kid for kid in class_kids if kid["id"] == selected_kid_id)
+        bonus_enabled = selected_kid.get("program_group") in bonus_classes
 
-        st.subheader("30-Week Memory Progress")
+        st.subheader("Progress Chart")
         st.caption("Hover over a week, central truth, or verse reference to see its full reference.")
         st.markdown(
             """
             <style>
             .progress-grid { overflow-x: auto; }
-            .progress-grid-header, .progress-grid-row { align-items: center; display: grid; grid-template-columns: 2.3fr 1.1fr 1.8fr 1.2fr 1.2fr; gap: .5rem; min-width: 760px; }
+            .progress-grid-header, .progress-grid-row { align-items: center; display: grid; grid-template-columns: .55fr 2.3fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; gap: .5rem; min-width: 900px; }
             .progress-grid-header { background: #dce8ec; color: #162b33; font-weight: 700; padding: .55rem; }
             .progress-grid-row { border-bottom: 1px solid #c7d1d8; padding: .35rem .55rem; }
-            .progress-grid-row span[title] { cursor: help; text-decoration: underline dotted; }
+            .progress-grid-row span[title], .esv-reference { cursor: help; text-decoration: underline dotted; }
+            .esv-reference { color: #1261a0; position: relative; }
+            .esv-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none; font-size: .85rem; font-weight: normal; left: 0; line-height: 1.45; padding: .7rem; position: absolute; width: min(28rem, 70vw); z-index: 10; }
+            .esv-reference:hover .esv-tooltip, .esv-reference:focus .esv-tooltip { display: block; }
             </style>
             """,
             unsafe_allow_html=True,
         )
         with st.form("record_lesson_progress"):
             st.markdown(
-                "<div class='progress-grid'><div class='progress-grid-header'><span>Week</span><span>Attendance</span><span>Central Truth</span><span>Memory Verse</span><span>Bonus Verse</span></div>",
+                "<div class='progress-grid'><div class='progress-grid-header'><span></span><span>Week</span><span></span><span>Central Truth</span><span></span><span>Memory Verse</span><span></span><span>Bonus Verse</span></div>",
                 unsafe_allow_html=True,
             )
             lesson_results = {}
@@ -532,15 +530,15 @@ elif page == "Record Progress":
                 memory_key = f"memory_{selected_kid_id}_{lesson_id}"
                 bonus_key = f"bonus_{selected_kid_id}_{lesson_id}"
                 attendance_key = f"lesson_attendance_{selected_kid_id}_{lesson_id}"
-                row_cols = st.columns([2.3, 1.1, 1.8, 1.2, 1.2])
-                row_cols[0].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
-                attendance_checked = row_cols[1].checkbox("Present", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key, label_visibility="collapsed")
-                row_cols[2].markdown(render_reference_label(lesson["Central Truth"], lesson["Central Truth"]), unsafe_allow_html=True)
+                row_cols = st.columns([.55, 2.3, .55, 1.8, .55, 1.2, .55, 1.2])
+                attendance_checked = row_cols[0].checkbox("Present", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key, label_visibility="collapsed")
+                row_cols[1].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
                 central_checked = row_cols[2].checkbox("Done", value=bool(existing.get("central_truth_completed", 0)), key=central_truth_key, label_visibility="collapsed")
-                row_cols[3].markdown(render_reference_label(lesson["Memory Verse"], lesson["Memory Verse"]), unsafe_allow_html=True)
-                memory_checked = row_cols[3].checkbox("Done", value=bool(existing.get("memory_verse_completed", 0)), key=memory_key, label_visibility="collapsed")
-                row_cols[4].markdown(render_reference_label(lesson["Bonus Verse"], lesson["Bonus Verse"]), unsafe_allow_html=True)
-                bonus_checked = row_cols[4].checkbox("Done", value=bool(existing.get("bonus_verse_completed", 0)), key=bonus_key, label_visibility="collapsed", disabled=not bonus_enabled)
+                row_cols[3].markdown(render_reference_label(lesson["Central Truth"], lesson["Central Truth"]), unsafe_allow_html=True)
+                memory_checked = row_cols[4].checkbox("Done", value=bool(existing.get("memory_verse_completed", 0)), key=memory_key, label_visibility="collapsed")
+                row_cols[5].markdown(esv_reference(lesson["Memory Verse"]), unsafe_allow_html=True)
+                bonus_checked = row_cols[6].checkbox("Done", value=bool(existing.get("bonus_verse_completed", 0)), key=bonus_key, label_visibility="collapsed", disabled=not bonus_enabled)
+                row_cols[7].markdown(esv_reference(lesson["Bonus Verse"]), unsafe_allow_html=True)
                 lesson_results[lesson_id] = {"attendance": attendance_checked, "central": central_checked, "memory": memory_checked, "bonus": bonus_checked, "date": lesson_date}
             st.markdown("</div>", unsafe_allow_html=True)
             if st.form_submit_button("Save Lesson Progress"):
@@ -565,24 +563,3 @@ elif page == "Record Progress":
                     )
                 st.success("30-week progress saved.")
                 st.rerun()
-
-elif page == "Reports":
-    kids = records("kids", "name")
-    if not kids:
-        st.info("Add kids first.")
-    else:
-        kid_id = st.selectbox("Choose a kid", [kid["id"] for kid in kids], format_func=lambda value: next(k["name"] for k in kids if k["id"] == value))
-        kid = next(k for k in kids if k["id"] == kid_id)
-        verses = {verse["id"]: verse for verse in records("verses")}
-        rows_df = pd.DataFrame([
-            (verses[row["verse_id"]]["reference"], verses[row["verse_id"]]["week_date"], row.get("memorized", 0), row.get("date_recorded"))
-            for row in records("progress") if row.get("kid_id") == kid_id and row.get("verse_id") in verses
-        ], columns=["reference", "week_date", "memorized", "date_recorded"])
-        if rows_df.empty:
-            st.info(f"No progress recorded yet for {kid['name']}.")
-        else:
-            display_df = rows_df.copy()
-            display_df["memorized"] = display_df["memorized"].map({1: "✅ Memorized", 0: "⏳ In progress"})
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
-            pdf_bytes = build_kid_report_pdf(kid["name"], kid.get("class_group"), list(rows_df.itertuples(index=False, name=None)))
-            st.download_button("📄 Download printable PDF report", data=pdf_bytes, file_name=f"{kid['name'].replace(' ', '_')}_verse_report.pdf", mime="application/pdf")

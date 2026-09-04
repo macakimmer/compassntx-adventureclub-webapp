@@ -15,16 +15,16 @@ import streamlit.components.v1 as components
 from fpdf import FPDF
 from google.cloud import firestore
 
-APP_TITLE = os.environ.get("APP_TITLE", "Memory Verse Tracker")
+APP_TITLE = os.environ.get("APP_TITLE", "Adventure Club Memory Verse Tracker")
 TEACHER_PIN = os.environ.get("TEACHER_PIN", "ac2627")
-ESV_API_TOKEN = os.environ.get("ESV_API_TOKEN")
+ESV_API_TOKEN = os.environ.get("ESV_API_TOKEN", "648d0d396dcee8db1e8cbccc5b93b48946e04302")
 LESSONS_PATH = Path(__file__).with_name("lessons_2026_2027.csv")
 KIDS_PATH = Path(__file__).with_name("kids.json")
 CALENDAR_ID = os.environ.get(
     "GOOGLE_CALENDAR_ID",
     "c_d659594b907cdc6b6b3e82b1c5f82f74249ecfd4abacbbfc3119fb6e34cfa6ee@group.calendar.google.com",
 )
-CALENDAR_TIMEZONE = os.environ.get("CALENDAR_TIMEZONE", "America/Los_Angeles")
+CALENDAR_TIMEZONE = os.environ.get("CALENDAR_TIMEZONE", "America/Chicago")
 
 st.set_page_config(page_title=APP_TITLE, page_icon="📖", layout="wide")
 
@@ -68,6 +68,33 @@ def update_record(name, record_id, values):
 
 def delete_record(name, record_id):
     collection(name).document(record_id).delete()
+
+def sync_kids_from_json():
+    """Syncs the local kids.json data into Firestore, preserving existing records."""
+    if not KIDS_PATH.exists():
+        return
+    with KIDS_PATH.open(encoding="utf-8") as f:
+        roster = json.load(f)
+    
+    existing_names = {k["name"] for k in records("kids")}
+    for group_name, kids_list in roster.items():
+        for kid_data in kids_list:
+            if kid_data["name"] not in existing_names:
+                add_record("kids", {
+                    "name": kid_data["name"],
+                    "class_group": kid_data.get("game_group") or None,
+                    "program_group": group_name,
+                    "emergency_contact": kid_data.get("emergency_contact", ""),
+                    "medical_notes": kid_data.get("medical_notes", ""),
+                    "active": 1
+                })
+
+@st.cache_resource(show_spinner="Syncing roster from local file...")
+def run_startup_sync():
+    """Runs once when the app server starts to ensure data is synced."""
+    sync_kids_from_json()
+
+run_startup_sync()
 
 
 @st.cache_data
@@ -244,7 +271,7 @@ else:
     is_verified = False
 
 st.title(f"📖 {APP_TITLE}")
-page = st.sidebar.radio("Navigate", ["Dashboard", "Lesson Reference", "Calendar", "Manage Kids", "Manage Verses", "Record Progress", "Reports"])
+page = st.sidebar.radio("Navigate", ["Dashboard", "Record Progress", "Lesson Reference", "Calendar", "Manage Kids", "Reports"])
 
 if page == "Calendar":
     render_calendar()
@@ -308,6 +335,12 @@ elif page == "Manage Kids":
     if not is_verified:
         st.warning("Enable Teacher Mode and enter the teacher PIN to manage kids.")
     else:
+        st.subheader("Data Sync")
+        if st.button("📥 Manual Sync from kids.json"):
+            sync_kids_from_json()
+            st.success("Sync complete! New kids from the JSON file have been added.")
+            st.rerun()
+
         st.subheader("Add a Kid")
         with st.form("add_kid", clear_on_submit=True):
             name = st.text_input("Name")
@@ -330,32 +363,6 @@ elif page == "Manage Kids":
                 update_record("kids", kid["id"], {"active": 0 if kid.get("active", 1) else 1})
                 st.rerun()
 
-elif page == "Manage Verses":
-    if not is_verified:
-        st.warning("Enable Teacher Mode and enter the teacher PIN to manage verses.")
-    else:
-        st.subheader("Add a Verse")
-        with st.form("add_verse", clear_on_submit=True):
-            reference = st.text_input("Reference (e.g. John 3:16)")
-            text = st.text_area("Verse text (optional)")
-            week_date = st.date_input("Week assigned", value=date.today())
-            if st.form_submit_button("Add Verse"):
-                if reference.strip():
-                    add_record("verses", {"reference": reference.strip(), "text": text.strip() or None, "week_date": week_date.isoformat()})
-                    st.success(f"Added {reference}.")
-                    st.rerun()
-                else:
-                    st.warning("Please enter a verse reference.")
-        verses = records("verses", "week_date", descending=True)
-        st.subheader("Current Verses")
-        if not verses:
-            st.info("No verses added yet.")
-        else:
-            st.dataframe(pd.DataFrame(verses), use_container_width=True, hide_index=True)
-            verse_id = st.selectbox("Delete a verse", [None] + [verse["id"] for verse in verses], format_func=lambda value: "-" if value is None else next(v["reference"] for v in verses if v["id"] == value))
-            if verse_id and st.button("Delete selected verse", type="secondary"):
-                delete_record("verses", verse_id)
-                st.rerun()
 
 elif page == "Record Progress":
     kids = [kid for kid in records("kids", "name") if kid.get("active", 1)]
@@ -364,14 +371,33 @@ elif page == "Record Progress":
         st.info("Add at least one kid and one verse first.")
     else:
         verse_id = st.selectbox("Verse", [verse["id"] for verse in verses], format_func=lambda value: next(f"{v['reference']} ({v['week_date']})" for v in verses if v["id"] == value))
-        existing = {row["kid_id"]: row for row in records("progress") if row.get("verse_id") == verse_id}
+            existing_progress = {row["kid_id"]: row for row in records("progress") if row.get("verse_id") == verse_id}
+            existing_attendance = {row["kid_id"]: row for row in records("attendance") if row.get("verse_id") == verse_id}
+
         with st.form("record_progress"):
-            checks = {kid["id"]: st.checkbox(kid["name"], value=bool(existing.get(kid["id"], {}).get("memorized", 0))) for kid in kids}
-            if st.form_submit_button("Save Progress"):
+                st.markdown("### Attendance & Memory Verse")
+                h_cols = st.columns([3, 1, 1])
+                h_cols[0].write("**Kid**")
+                h_cols[1].write("**Present**")
+                h_cols[2].write("**Memorized**")
+
+                att_results = {}
+                mem_results = {}
+
+                for kid in kids:
+                    c1, c2, c3 = st.columns([3, 1, 1])
+                    c1.write(kid["name"])
+                    att_results[kid["id"]] = c2.checkbox("Present", value=bool(existing_attendance.get(kid["id"], {}).get("present", 0)), key=f"att_{kid['id']}", label_visibility="collapsed")
+                    mem_results[kid["id"]] = c3.checkbox("Memorized", value=bool(existing_progress.get(kid["id"], {}).get("memorized", 0)), key=f"mem_{kid['id']}", label_visibility="collapsed")
+
+                if st.form_submit_button("Save Records"):
                 today = date.today().isoformat()
-                for kid_id, memorized in checks.items():
-                    update_record("progress", progress_id(kid_id, verse_id), {"kid_id": kid_id, "verse_id": verse_id, "memorized": int(memorized), "date_recorded": today if memorized else None})
-                st.success("Progress saved.")
+                    for kid in kids:
+                        k_id = kid["id"]
+                        update_record("attendance", f"att_{k_id}_{verse_id}", {"kid_id": k_id, "verse_id": verse_id, "present": int(att_results[k_id]), "date_recorded": today if att_results[k_id] else None})
+                        update_record("progress", progress_id(k_id, verse_id), {"kid_id": k_id, "verse_id": verse_id, "memorized": int(mem_results[k_id]), "date_recorded": today if mem_results[k_id] else None})
+                    st.success("Records updated successfully.")
+                    st.rerun()
 
 elif page == "Reports":
     kids = records("kids", "name")

@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
+COPY app.py kids.json lessons_2026_2027.csv ./
 
 # Cloud Run sets $PORT; default to 8080 for local runs
 ENV PORT=8080

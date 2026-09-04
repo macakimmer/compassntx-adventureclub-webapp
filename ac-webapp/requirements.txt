@@ -1,0 +1,5 @@
+streamlit==1.38.0
+pandas==2.2.2
+fpdf2==2.7.9
+google-cloud-firestore==2.14.0
+requests==2.32.3

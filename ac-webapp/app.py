@@ -314,35 +314,6 @@ def render_reference_label(label, reference):
     return f'<span title="{html.escape(reference, quote=True)}">{html.escape(label)}</span>'
 
 
-def build_kid_report_pdf(kid_name, class_group, rows):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.cell(0, 12, "Memory Verse Progress Report", ln=True)
-    pdf.set_font("Helvetica", "", 12)
-    pdf.cell(0, 8, f"Name: {kid_name}", ln=True)
-    if class_group:
-        pdf.cell(0, 8, f"Class: {class_group}", ln=True)
-    pdf.cell(0, 8, f"Generated: {date.today().isoformat()}", ln=True)
-    pdf.ln(4)
-    memorized_count = sum(1 for row in rows if row[2])
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, f"Verses memorized: {memorized_count} / {len(rows)}", ln=True)
-    pdf.ln(4)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_fill_color(230, 230, 230)
-    for width, label in [(90, "Verse"), (35, "Week"), (30, "Status"), (35, "Date")]:
-        pdf.cell(width, 8, label, border=1, fill=True)
-    pdf.ln()
-    pdf.set_font("Helvetica", "", 11)
-    for reference, week_date, memorized, date_recorded in rows:
-        pdf.cell(90, 8, str(reference)[:45], border=1)
-        pdf.cell(35, 8, str(week_date or ""), border=1)
-        pdf.cell(30, 8, "Memorized" if memorized else "In progress", border=1)
-        pdf.cell(35, 8, str(date_recorded or ""), border=1)
-        pdf.ln()
-    return bytes(pdf.output())
-
 
 st.sidebar.header("🔑 Teacher Portal")
 teacher_mode = st.sidebar.checkbox("Enable Teacher Mode")
@@ -505,7 +476,7 @@ elif page == "Record Progress":
             """
             <style>
             .progress-grid { overflow-x: auto; }
-            .progress-grid-header, .progress-grid-row { align-items: center; display: grid; grid-template-columns: .55fr 2.3fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; gap: .5rem; min-width: 900px; }
+            .progress-grid-header, .progress-grid-row { align-items: center; display: grid; grid-template-columns: 2.3fr .55fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; gap: .5rem; min-width: 900px; }
             .progress-grid-header { background: #dce8ec; color: #162b33; font-weight: 700; padding: .55rem; }
             .progress-grid-row { border-bottom: 1px solid #c7d1d8; padding: .35rem .55rem; }
             .progress-grid-row span[title], .esv-reference { cursor: help; text-decoration: underline dotted; }
@@ -518,7 +489,7 @@ elif page == "Record Progress":
         )
         with st.form("record_lesson_progress"):
             st.markdown(
-                "<div class='progress-grid'><div class='progress-grid-header'><span></span><span>Week</span><span></span><span>Central Truth</span><span></span><span>Memory Verse</span><span></span><span>Bonus Verse</span></div>",
+                "<div class='progress-grid'><div class='progress-grid-header'><span>Week</span><span>Attendance</span><span></span><span>Central Truth</span><span></span><span>Memory Verse</span><span></span><span>Bonus Verse</span></div>",
                 unsafe_allow_html=True,
             )
             lesson_results = {}
@@ -530,9 +501,9 @@ elif page == "Record Progress":
                 memory_key = f"memory_{selected_kid_id}_{lesson_id}"
                 bonus_key = f"bonus_{selected_kid_id}_{lesson_id}"
                 attendance_key = f"lesson_attendance_{selected_kid_id}_{lesson_id}"
-                row_cols = st.columns([.55, 2.3, .55, 1.8, .55, 1.2, .55, 1.2])
-                attendance_checked = row_cols[0].checkbox("Present", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key, label_visibility="collapsed")
-                row_cols[1].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
+                row_cols = st.columns([2.3, .55, .55, 1.8, .55, 1.2, .55, 1.2])
+                row_cols[0].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
+                attendance_checked = row_cols[1].checkbox("Present", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key, label_visibility="collapsed")
                 central_checked = row_cols[2].checkbox("Done", value=bool(existing.get("central_truth_completed", 0)), key=central_truth_key, label_visibility="collapsed")
                 row_cols[3].markdown(render_reference_label(lesson["Central Truth"], lesson["Central Truth"]), unsafe_allow_html=True)
                 memory_checked = row_cols[4].checkbox("Done", value=bool(existing.get("memory_verse_completed", 0)), key=memory_key, label_visibility="collapsed")

@@ -133,7 +133,7 @@ def run_startup_sync():
     """Runs once when the app server starts to ensure data is synced."""
     sync_kids_from_json()
 
-run_startup_sync()
+#run_startup_sync()
 
 
 @st.cache_data
@@ -168,7 +168,8 @@ def get_esv_text(reference):
             "q": reference,
             "include-headings": "false",
             "include-footnotes": "false",
-            "include-verse-numbers": "false",
+            "include-verse-numbers": "true",
+            "include-short-copyright": "true",
             "indent-poetry": "false",
             "indent-paragraphs": "false",
             "line-length": "0",
@@ -239,11 +240,12 @@ def render_lesson_reference():
         <style>
         .lesson-table { border-collapse: collapse; color: #162b33 !important; width: 100%; font-size: 0.92rem; }
         .lesson-table th, .lesson-table td { border: 1px solid #9eafb8; color: #162b33 !important; padding: 0.65rem; text-align: left; vertical-align: top; }
+        .lesson-table td * { color: #162b33 !important; }
         .lesson-table thead { display: table-header-group; }
         .lesson-table th { background: #dce8ec !important; color: #162b33 !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
         .esv-reference { color: #075985 !important; cursor: help; position: relative; text-decoration: underline dotted; }
-        .esv-tooltip { background: #1f2937; border-radius: 0.35rem; bottom: 1.6rem; color: white; display: none !important; font-size: 0.85rem; font-weight: normal; left: 0; line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
-        .esv-reference:hover .esv-tooltip, .esv-reference:focus .esv-tooltip { display: block !important; }
+        .esv-reference .esv-reference-tooltip { background: #1f2937; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: white !important; display: none !important; font-size: 0.85rem; font-weight: normal; left: 0; line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+        .esv-reference:hover .esv-reference-tooltip, .esv-reference:focus .esv-reference-tooltip { display: block !important; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -626,13 +628,16 @@ elif page == "Record Progress":
                 memory_key = f"memory_{selected_kid_id}_{lesson_id}"
                 bonus_key = f"bonus_{selected_kid_id}_{lesson_id}"
                 attendance_key = f"lesson_attendance_{selected_kid_id}_{lesson_id}"
-                row_cols = st.columns([2.3, .55] if is_review_week else ([2.3, .55, .55, 1.8, .55, 1.2, .55, 1.2] if bonus_column_visible else [2.3, .55, .55, 1.8, .55, 1.2]))
+                column_widths = [2.3, .55, .55, 1.8, .55, 1.2, .55, 1.2] if bonus_column_visible else [2.3, .55, .55, 1.8, .55, 1.2]
+                row_cols = st.columns(column_widths)
                 row_cols[0].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
                 attendance_checked = row_cols[1].checkbox("Present", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key, label_visibility="collapsed")
                 if is_review_week:
                     central_checked = False
                     memory_checked = False
                     bonus_checked = False
+                    for placeholder in row_cols[2:]:
+                        placeholder.markdown("&nbsp;", unsafe_allow_html=True)
                 else:
                     central_checked = row_cols[2].checkbox("Done", value=bool(existing.get("central_truth_completed", 0)), key=central_truth_key, label_visibility="collapsed")
                     row_cols[3].markdown(render_reference_label(lesson["Central Truth"], lesson["Central Truth"]), unsafe_allow_html=True)
@@ -738,8 +743,9 @@ elif page == "Roster":
             <style>
             .roster-table { border-collapse: collapse; color: #162b33 !important; width: 100%; }
             .roster-table th, .roster-table td { border: 1px solid #9eafb8; color: #162b33 !important; padding: .65rem; text-align: left; vertical-align: top; }
-            .roster-table th { background: #dce8ec !important; font-weight: 700; }
-            .roster-table a { color: #075985; font-weight: 600; }
+            .roster-table td * { color: #162b33 !important; }
+            .roster-table th { background: #dce8ec !important; color: #162b33 !important; font-weight: 700; }
+            .roster-table a { color: #162b33 !important; font-weight: 600; }
             </style>
             """
             "<table class='roster-table'><thead><tr>"

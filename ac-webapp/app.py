@@ -56,6 +56,20 @@ st.markdown(
         position: relative;
         z-index: 1;
     }}
+    @media (max-width: 768px) {{
+        [data-testid="stAppViewContainer"] > .main {{ padding-left: .65rem; padding-right: .65rem; }}
+        [data-testid="stSidebar"] {{ min-width: 15rem; max-width: 15rem; }}
+        h1 {{ font-size: 1.65rem !important; }}
+        h2 {{ font-size: 1.35rem !important; }}
+        h3 {{ font-size: 1.15rem !important; }}
+        [data-testid="stMetricValue"] {{ font-size: 1.35rem; }}
+        [data-testid="stFormSubmitButton"] {{ bottom: .65rem; right: .65rem; }}
+        [data-testid="stFormSubmitButton"] button {{ min-height: 2.7rem; }}
+        .lesson-table, .roster-table {{ display: block; max-width: 100%; overflow-x: auto; white-space: normal; }}
+        .lesson-table th, .lesson-table td, .roster-table th, .roster-table td {{ min-width: 8rem; }}
+        .progress-grid {{ max-width: 100%; overflow-x: auto; padding-bottom: .5rem; }}
+        .record-progress-top-link {{ margin-bottom: 4rem; }}
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -563,6 +577,10 @@ elif page == "Record Progress":
             [data-testid="stFormSubmitButton"] button { box-shadow: 0 3px 12px rgba(22, 43, 51, .28); }
             .record-progress-top-link { background: #356b70; border-radius: .35rem; color: white !important; display: inline-block; font-weight: 700; margin: 1rem 0 2rem; padding: .55rem 1rem; text-decoration: none !important; }
             .record-progress-top-link:hover { background: #285257; }
+            @media (max-width: 768px) {
+                [data-testid="stForm"] { max-width: 100%; overflow-x: auto; }
+                [data-testid="stForm"] [data-testid="stHorizontalBlock"] { min-width: 760px; }
+            }
             </style>
             """,
             unsafe_allow_html=True,

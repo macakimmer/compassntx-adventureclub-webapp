@@ -713,15 +713,35 @@ elif page == "Game Groups":
     if not visible_kids:
         st.info("No kids match the selected filters.")
     else:
-        group_rows = [
-            {
-                "Name": kid.get("name", ""),
-                "Game Group": (kid.get("class_group") or "").title() or "Unassigned",
-                "Class": kid.get("program_group", "") or "Unassigned",
-            }
-            for kid in visible_kids
-        ]
-        st.dataframe(pd.DataFrame(group_rows), use_container_width=True, hide_index=True)
+        group_colors = {
+            "blue": ("#dbeafe", "#1e3a8a"),
+            "green": ("#dcfce7", "#14532d"),
+            "red": ("#fee2e2", "#7f1d1d"),
+            "yellow": ("#fef9c3", "#713f12"),
+        }
+        group_rows = []
+        for kid in visible_kids:
+            group_name = (kid.get("class_group") or "").lower()
+            background, text_color = group_colors.get(group_name, ("#f3f4f6", "#1f2937"))
+            group_rows.append(
+                "<tr style='background: " + background + "; color: " + text_color + ";'>"
+                f"<td>{html.escape(kid.get('name', ''))}</td>"
+                f"<td>{html.escape(group_name.title() or 'Unassigned')}</td>"
+                f"<td>{html.escape(kid.get('program_group', '') or 'Unassigned')}</td>"
+                "</tr>"
+            )
+        st.markdown(
+            "<style>"
+            ".game-groups-table { border-collapse: collapse; color: #1f2937; width: 100%; }"
+            ".game-groups-table th, .game-groups-table td { border: 1px solid #9eafb8; padding: .65rem; text-align: left; }"
+            ".game-groups-table th { background: #285257; color: white; }"
+            ".game-groups-table td { color: inherit; }"
+            "</style>"
+            "<table class='game-groups-table'><thead><tr>"
+            "<th>Name</th><th>Game Group</th><th>Class</th>"
+            f"</tr></thead><tbody>{''.join(group_rows)}</tbody></table>",
+            unsafe_allow_html=True,
+        )
 
 elif page == "Roster":
     if not is_verified:

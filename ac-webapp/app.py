@@ -261,7 +261,7 @@ def render_lesson_reference():
         .lesson-table td * { color: white !important; }
         .lesson-table thead { display: table-header-group; }
         .lesson-table th { background: #285257 !important; color: white !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
-        .esv-reference { color: white !important; cursor: help; position: relative; text-decoration: underline dotted; }
+        .esv-reference { color: white !important; cursor: default; position: relative; text-decoration: underline dotted; }
         .esv-reference .esv-reference-tooltip { background: #1f2937; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: white !important; display: none !important; font-size: 0.85rem; font-weight: normal; left: 0; line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
         .esv-reference:hover .esv-reference-tooltip, .esv-reference:focus .esv-reference-tooltip { display: block !important; }
         </style>
@@ -564,26 +564,65 @@ elif page == "Record Progress":
         st.markdown(
             """
             <style>
-            .progress-grid { overflow-x: auto; }
+            .progress-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
             .progress-grid-header, .progress-grid-row { align-items: center; display: grid; gap: .5rem; min-width: 760px; }
             .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: 2.3fr .55fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; min-width: 900px; }
             .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: 2.3fr .55fr .55fr 1.8fr .55fr 1.2fr; }
             .progress-grid-header { background: #dce8ec; border: 1px solid #81959e; color: #162b33; font-weight: 700; padding: .55rem; }
             .progress-grid-row { border-bottom: 1px solid #9eafb8; padding: .35rem .55rem; }
-            .progress-grid-row span[title], .progress-esv-reference { cursor: help; text-decoration: underline dotted; }
-            .progress-esv-reference { color: #075985 !important; display: inline-block; position: relative; }
+            .progress-grid-row span[title], .progress-esv-reference { cursor: default; text-decoration: underline dotted; }
+            /* display: inline-block */
+            .progress-esv-reference { color: white !important; display: none; position: relative; }
             .progress-esv-reference .progress-esv-reference-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none !important; font-size: .85rem; font-weight: normal; left: 0; line-height: 1.45; padding: .7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
             .progress-esv-reference:hover .progress-esv-reference-tooltip, .progress-esv-reference:focus .progress-esv-reference-tooltip { display: block !important; }
+
+            /* Sticky first column so context (reference/name) stays visible while scrolling horizontally */
+            .progress-grid-header > *:first-child, .progress-grid-row > *:first-child {
+                background: inherit;
+                left: 0;
+                position: sticky;
+                z-index: 2;
+            }
+            .progress-grid-row > *:first-child { background: #fff; }
+
             [data-testid="stForm"] [data-testid="stHorizontalBlock"] { border-bottom: 1px solid #81959e; border-left: 1px solid #81959e; border-right: 1px solid #81959e; padding: .35rem .25rem; }
             [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-right: 1px solid #9eafb8; min-height: 2.5rem; padding: 0 .35rem; }
             [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child { border-right: 0; }
+
             [data-testid="stFormSubmitButton"] { bottom: 1rem; position: fixed; right: 2rem; z-index: 1000; }
             [data-testid="stFormSubmitButton"] button { box-shadow: 0 3px 12px rgba(22, 43, 51, .28); }
+
             .record-progress-top-link { background: #356b70; border-radius: .35rem; color: white !important; display: inline-block; font-weight: 700; margin: 1rem 0 2rem; padding: .55rem 1rem; text-decoration: none !important; }
             .record-progress-top-link:hover { background: #285257; }
+
+            /* Tablet / small screens */
             @media (max-width: 768px) {
-                [data-testid="stForm"] { max-width: 100%; overflow-x: auto; }
-                [data-testid="stForm"] [data-testid="stHorizontalBlock"] { min-width: 760px; }
+                [data-testid="stForm"] { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+                [data-testid="stForm"] [data-testid="stHorizontalBlock"] { min-width: 640px; }
+                .progress-grid-header, .progress-grid-row { min-width: 640px; }
+                .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { min-width: 760px; }
+            }
+
+            /* Phones */
+            @media (max-width: 480px) {
+                .progress-grid-header, .progress-grid-row { font-size: .85rem; gap: .35rem; padding: .45rem; }
+                .progress-esv-reference .progress-esv-reference-tooltip { width: min(20rem, 85vw); left: -1rem; }
+
+                /* Bigger tap targets for checkboxes/buttons inside rows */
+                .progress-grid-row input[type="checkbox"], .progress-grid-row button {
+                    min-height: 1.6rem;
+                    min-width: 1.6rem;
+                }
+
+                /* Don't let the fixed submit button float over content/keyboard on small screens */
+                [data-testid="stFormSubmitButton"] {
+                    bottom: env(safe-area-inset-bottom, 0);
+                    left: 0;
+                    position: sticky;
+                    right: auto;
+                    width: 100%;
+                }
+                [data-testid="stFormSubmitButton"] button { width: 100%; }
             }
             </style>
             """,
@@ -608,6 +647,7 @@ elif page == "Record Progress":
                 row_cols = st.columns(column_widths)
                 row_cols[0].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
                 attendance_checked = row_cols[1].checkbox("Present", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key, label_visibility="collapsed")
+                row_cols[1].markdown(render_reference_label("Attendance"), unsafe_allow_html=True)
                 if is_review_week:
                     central_checked = False
                     memory_checked = False
@@ -646,7 +686,7 @@ elif page == "Record Progress":
                             "date_recorded": recorded_on,
                         },
                     )
-                st.success("30-week progress saved.")
+                st.success("Progress saved.")
                 st.rerun()
             st.markdown('<a class="record-progress-top-link" href="#record-progress-top">Top</a>', unsafe_allow_html=True)
 

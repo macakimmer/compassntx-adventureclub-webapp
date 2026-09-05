@@ -262,7 +262,7 @@ def render_lesson_reference():
         .lesson-table thead { display: table-header-group; }
         .lesson-table th { background: #285257 !important; color: white !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
         .esv-reference { color: white !important; cursor: default; position: relative; text-decoration: underline dotted; }
-        .esv-reference .esv-reference-tooltip { background: #1f2937; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: white !important; display: none !important; font-size: 0.85rem; font-weight: normal; left: 0; line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+        .esv-reference .esv-reference-tooltip { background: #1f2937; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: white !important; display: none !important; font-size: 0.85rem; font-weight: normal; top: 100%; left: 50%; transform: translateX(-50%); line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
         .esv-reference:hover .esv-reference-tooltip, .esv-reference:focus .esv-reference-tooltip { display: block !important; }
         </style>
         """,
@@ -572,8 +572,8 @@ elif page == "Record Progress":
             .progress-grid-row { border-bottom: 1px solid #9eafb8; padding: .35rem .55rem; }
             .progress-grid-row span[title], .progress-esv-reference { cursor: default; text-decoration: underline dotted; }
             /* display: inline-block */
-            .progress-esv-reference { color: white !important; display: none; position: relative; }
-            .progress-esv-reference .progress-esv-reference-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none !important; font-size: .85rem; font-weight: normal; left: 0; line-height: 1.45; padding: .7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+            .progress-esv-reference { color: white !important; cursor: default; position: relative; text-decoration: underline dotted; }
+            .progress-esv-reference .progress-esv-reference-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none !important; font-size: .85rem; font-weight: normal; top: 100%; left: 50%; transform: translateX(-50%); line-height: 1.45; padding: .7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
             .progress-esv-reference:hover .progress-esv-reference-tooltip, .progress-esv-reference:focus .progress-esv-reference-tooltip { display: block !important; }
 
             /* Sticky first column so context (reference/name) stays visible while scrolling horizontally */

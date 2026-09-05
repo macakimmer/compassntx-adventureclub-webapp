@@ -181,13 +181,54 @@ def get_esv_text(reference):
     return passages[0].strip() if passages else "ESV text was not found."
 
 
+ESV_BOOK_NAMES = {
+    "1 Jn": "1 John",
+    "1 Pet": "1 Peter",
+    "1 Th": "1 Thessalonians",
+    "1 Cor": "1 Corinthians",
+    "2 Cor": "2 Corinthians",
+    "2 Pet": "2 Peter",
+    "2 Th": "2 Thessalonians",
+    "2 Jn": "2 John",
+    "2 Tim": "2 Timothy",
+    "3 Jn": "3 John",
+    "Acts": "Acts",
+    "Col": "Colossians",
+    "Eph": "Ephesians",
+    "Gen": "Genesis",
+    "Heb": "Hebrews",
+    "Isa": "Isaiah",
+    "Jer": "Jeremiah",
+    "Jn": "John",
+    "John": "John",
+    "Job": "Job",
+    "Lev": "Leviticus",
+    "Luke": "Luke",
+    "Mark": "Mark",
+    "Matt": "Matthew",
+    "Php": "Philippians",
+    "Phil": "Philippians",
+    "Ps": "Psalms",
+    "Rom": "Romans",
+    "Rev": "Revelation",
+}
+
+
+def expanded_verse_reference(reference):
+    for abbreviation in sorted(ESV_BOOK_NAMES, key=len, reverse=True):
+        if reference == abbreviation or reference.startswith(f"{abbreviation} "):
+            return ESV_BOOK_NAMES[abbreviation] + reference[len(abbreviation):]
+    return reference
+
+
 def esv_reference(reference, class_name="esv-reference"):
     if not reference:
         return ""
-    text = html.escape(get_esv_text(reference))
-    label = html.escape(reference)
+    display_reference = expanded_verse_reference(reference)
+    text = html.escape(get_esv_text(display_reference))
+    label = html.escape(display_reference)
     tooltip_class = f"{class_name}-tooltip"
-    return f'<span class="{class_name}" tabindex="0">{label}<span class="{tooltip_class}">{text}</span></span>'
+    return f'<span class="{class_name}" tabindex="0" aria-label="{label}">{label}<span class="{tooltip_class}" role="tooltip">{text}</span></span>'
 
 
 def render_lesson_reference():
@@ -271,6 +312,29 @@ def progress_rows():
                 "date_recorded": progress.get("date_recorded"),
             })
     return pd.DataFrame(rows, columns=["kid_id", "name", "class_group", "program_group", "reference", "week_date", "memorized", "date_recorded"])
+
+
+def lesson_progress_rows(kid_id):
+    lesson_records = {
+        row["id"]: row for row in records("lesson_progress")
+        if row.get("kid_id") == kid_id
+    }
+    attendance_records = {
+        row.get("date_recorded"): row for row in records("attendance")
+        if row.get("kid_id") == kid_id
+    }
+    rows = []
+    for lesson in current_lessons():
+        progress = lesson_records.get(lesson_progress_id(kid_id, lesson["Lesson Number"]), {})
+        attendance = attendance_records.get(lesson["Date"], {})
+        rows.append({
+            "Week": f"{lesson['Date']} · {lesson['Lesson Number']}",
+            "Attendance": "Completed" if attendance.get("present", 0) else "Incomplete",
+            "Central Truth": "Completed" if progress.get("central_truth_completed", 0) else "Incomplete",
+            "Memory Verse": "Completed" if progress.get("memory_verse_completed", 0) else "Incomplete",
+            "Bonus Verse": "Completed" if progress.get("bonus_verse_completed", 0) else "Incomplete",
+        })
+    return pd.DataFrame(rows)
 
 
 def build_progress_snapshot():
@@ -434,6 +498,8 @@ elif page == "Dashboard":
             else:
                 kid_progress["memorized"] = kid_progress["memorized"].map({1: "✅ Memorized", 0: "⏳ In progress"})
                 st.dataframe(kid_progress[["reference", "week_date", "memorized", "date_recorded"]], use_container_width=True, hide_index=True)
+            st.subheader("Lesson Progress")
+            st.dataframe(lesson_progress_rows(selected_kid_id), use_container_width=True, hide_index=True)
         st.subheader("All Records")
         display_df = filtered_prog_df.copy()
         display_df["memorized"] = display_df["memorized"].map({1: "✅ Memorized", 0: "⏳ In progress"})
@@ -445,6 +511,8 @@ elif page == "Dashboard":
             selected_kid = next(kid for kid in filtered_kids if kid["id"] == selected_kid_id)
             st.subheader(f"{selected_kid['name']}'s Verse Progress")
             st.info("No progress recorded yet for this kid.")
+            st.subheader("Lesson Progress")
+            st.dataframe(lesson_progress_rows(selected_kid_id), use_container_width=True, hide_index=True)
         else:
             st.info("No progress recorded yet. Add kids and verses, then use **Record Progress**.")
 
@@ -530,10 +598,10 @@ elif page == "Record Progress":
             .progress-grid-row { border-bottom: 1px solid #9eafb8; padding: .35rem .55rem; }
             .progress-grid-row span[title], .progress-esv-reference { cursor: help; text-decoration: underline dotted; }
             .progress-esv-reference { color: #075985 !important; display: inline-block; position: relative; }
-            .progress-esv-reference .progress-esv-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none !important; font-size: .85rem; font-weight: normal; left: 0; line-height: 1.45; padding: .7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
-            .progress-esv-reference:hover .progress-esv-tooltip, .progress-esv-reference:focus .progress-esv-tooltip { display: block !important; }
-            [data-testid="stForm"] [data-testid="stHorizontalBlock"] { border-bottom: 1px solid #9eafb8; border-left: 1px solid #9eafb8; border-right: 1px solid #9eafb8; padding: .35rem .25rem; }
-            [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-right: 1px solid #c1cdd2; min-height: 2.5rem; padding: 0 .35rem; }
+            .progress-esv-reference .progress-esv-reference-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none !important; font-size: .85rem; font-weight: normal; left: 0; line-height: 1.45; padding: .7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+            .progress-esv-reference:hover .progress-esv-reference-tooltip, .progress-esv-reference:focus .progress-esv-reference-tooltip { display: block !important; }
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] { border-bottom: 1px solid #81959e; border-left: 1px solid #81959e; border-right: 1px solid #81959e; padding: .35rem .25rem; }
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-right: 1px solid #9eafb8; min-height: 2.5rem; padding: 0 .35rem; }
             [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child { border-right: 0; }
             [data-testid="stFormSubmitButton"] { bottom: 1rem; position: fixed; right: 2rem; z-index: 1000; }
             [data-testid="stFormSubmitButton"] button { box-shadow: 0 3px 12px rgba(22, 43, 51, .28); }

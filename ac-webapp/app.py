@@ -592,7 +592,7 @@ elif page == "Record Progress":
             [data-testid="stFormSubmitButton"] { bottom: 1rem; position: fixed; right: 2rem; z-index: 1000; }
             [data-testid="stFormSubmitButton"] button { box-shadow: 0 3px 12px rgba(22, 43, 51, .28); }
 
-            .record-progress-top-link { background: #356b70; border-radius: .35rem; color: white !important; display: inline-block; font-weight: 700; margin: 1rem 0 2rem; padding: .55rem 1rem; text-decoration: none !important; }
+            .record-progress-top-link { background: #356b70; border-radius: .35rem; color: white !important; display: inline; font-weight: 700; margin: 1rem 0 2rem; padding: .55rem 1rem; text-decoration: none !important; }
             .record-progress-top-link:hover { background: #285257; }
 
             /* Tablet / small screens */
@@ -617,13 +617,13 @@ elif page == "Record Progress":
                     min-width: 1.6rem;
                 }
 
-                /* Don't let the fixed submit button float over content/keyboard on small screens */
+                /* Keep the Save control floating while leaving room for mobile content. */
                 [data-testid="stFormSubmitButton"] {
                     bottom: env(safe-area-inset-bottom, 0);
-                    left: 0;
-                    position: sticky;
-                    right: auto;
-                    width: 100%;
+                    left: .65rem;
+                    position: fixed;
+                    right: .65rem;
+                    width: auto;
                 }
                 [data-testid="stFormSubmitButton"] button { width: 100%; }
             }

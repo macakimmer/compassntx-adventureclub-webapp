@@ -58,7 +58,11 @@ st.markdown(
     }}
     @media (max-width: 768px) {{
         [data-testid="stAppViewContainer"] > .main {{ padding-left: .65rem; padding-right: .65rem; }}
-        [data-testid="stSidebar"] {{ min-width: 15rem; max-width: 15rem; }}
+        [data-testid="stSidebar"] {{ max-width: 85vw; width: min(15rem, 85vw); }}
+        [data-testid="stSidebar"][aria-expanded="false"] {{ margin-left: 0 !important; min-width: 0 !important; width: 0 !important; }}
+        [data-testid="stSidebar"][aria-expanded="false"] + div {{ width: 100% !important; }}
+        [data-testid="stAppViewContainer"] {{ width: 100% !important; }}
+        [data-testid="stAppViewContainer"] > .main {{ margin-left: 0 !important; max-width: 100% !important; width: 100% !important; }}
         h1 {{ font-size: 1.65rem !important; }}
         h2 {{ font-size: 1.35rem !important; }}
         h3 {{ font-size: 1.15rem !important; }}

@@ -597,15 +597,18 @@ elif page == "Record Progress":
 
             /* Tablet / small screens */
             @media (max-width: 768px) {
-                [data-testid="stForm"] { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-                [data-testid="stForm"] [data-testid="stHorizontalBlock"] { min-width: 640px; }
-                .progress-grid-header, .progress-grid-row { min-width: 640px; }
-                .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { min-width: 760px; }
+                [data-testid="stForm"] { max-width: 100%; overflow-x: visible; }
+                [data-testid="stForm"] [data-testid="stHorizontalBlock"] { min-width: 0; width: 100%; }
+                .progress-grid-header, .progress-grid-row { min-width: 0; width: 100%; overflow-wrap: anywhere; }
+                .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: minmax(0, 1.7fr) minmax(0, .9fr) minmax(1.4rem, .45fr) minmax(0, 1.25fr) minmax(1.4rem, .45fr) minmax(0, 1.15fr) minmax(1.4rem, .45fr) minmax(0, 1.15fr); }
+                .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: minmax(0, 1.7fr) minmax(0, .9fr) minmax(1.4rem, .45fr) minmax(0, 1.25fr) minmax(1.4rem, .45fr) minmax(0, 1.15fr); }
             }
 
             /* Phones */
             @media (max-width: 480px) {
-                .progress-grid-header, .progress-grid-row { font-size: .85rem; gap: .35rem; padding: .45rem; }
+                .progress-grid-header, .progress-grid-row { font-size: .7rem; gap: .2rem; padding: .25rem; }
+                .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: minmax(0, 1.45fr) minmax(0, .85fr) minmax(1.25rem, .4fr) minmax(0, 1.05fr) minmax(1.25rem, .4fr) minmax(0, .95fr) minmax(1.25rem, .4fr) minmax(0, .95fr); }
+                .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: minmax(0, 1.45fr) minmax(0, .85fr) minmax(1.25rem, .4fr) minmax(0, 1.05fr) minmax(1.25rem, .4fr) minmax(0, .95fr); }
                 .progress-esv-reference .progress-esv-reference-tooltip { width: min(20rem, 85vw); left: -1rem; }
 
                 /* Bigger tap targets for checkboxes/buttons inside rows */

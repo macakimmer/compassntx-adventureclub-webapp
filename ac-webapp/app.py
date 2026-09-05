@@ -566,8 +566,8 @@ elif page == "Record Progress":
             <style>
             .progress-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
             .progress-grid-header, .progress-grid-row { align-items: center; display: grid; gap: .5rem; min-width: 760px; }
-            .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: 2.3fr .55fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; min-width: 900px; }
-            .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: 2.3fr .55fr .55fr 1.8fr .55fr 1.2fr; }
+            .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: 2.3fr 1.15fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; min-width: 940px; }
+            .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: 2.3fr 1.15fr .55fr 1.8fr .55fr 1.2fr; }
             .progress-grid-header { background: #dce8ec; border: 1px solid #81959e; color: #162b33; font-weight: 700; padding: .55rem; }
             .progress-grid-row { border-bottom: 1px solid #9eafb8; padding: .35rem .55rem; }
             .progress-grid-row span[title], .progress-esv-reference { cursor: default; text-decoration: underline dotted; }
@@ -643,11 +643,10 @@ elif page == "Record Progress":
                 memory_key = f"memory_{selected_kid_id}_{lesson_id}"
                 bonus_key = f"bonus_{selected_kid_id}_{lesson_id}"
                 attendance_key = f"lesson_attendance_{selected_kid_id}_{lesson_id}"
-                column_widths = [2.3, .55, .55, 1.8, .55, 1.2, .55, 1.2] if bonus_column_visible else [2.3, .55, .55, 1.8, .55, 1.2]
+                column_widths = [2.3, 1.15, .55, 1.8, .55, 1.2, .55, 1.2] if bonus_column_visible else [2.3, 1.15, .55, 1.8, .55, 1.2]
                 row_cols = st.columns(column_widths)
                 row_cols[0].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
-                attendance_checked = row_cols[1].checkbox("Present", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key, label_visibility="collapsed")
-                row_cols[1].markdown(render_reference_label("Attendance"), unsafe_allow_html=True)
+                attendance_checked = row_cols[1].checkbox("Attendance", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key)
                 if is_review_week:
                     central_checked = False
                     memory_checked = False

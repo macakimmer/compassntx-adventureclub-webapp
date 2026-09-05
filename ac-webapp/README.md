@@ -12,7 +12,6 @@ by Google Cloud Firestore and deployable to Cloud Run.
 - Embedded kids ministry Google Calendar
 - Download printable PDF reports
 - Teacher-only management controls protected by an environment-variable PIN
-- Teacher-only export of current Firestore progress as `progress.json`
 
 ## Run locally
 
@@ -45,9 +44,6 @@ shared publicly or with the intended viewers for events to appear in the
 embed. Override the default calendar or timezone with `GOOGLE_CALENDAR_ID` and
 `CALENDAR_TIMEZONE` if needed.
 
-`progress.json` is an initial roster template. Firestore remains the source of
-truth for progress; enable Teacher Mode on the Dashboard and use **Download
-current progress JSON** to export the latest synchronized snapshot.
 
 ## Deploy to Cloud Run
 

@@ -238,12 +238,12 @@ def render_lesson_reference():
     st.markdown(
         """
         <style>
-        .lesson-table { border-collapse: collapse; color: #162b33 !important; width: 100%; font-size: 0.92rem; }
-        .lesson-table th, .lesson-table td { border: 1px solid #9eafb8; color: #162b33 !important; padding: 0.65rem; text-align: left; vertical-align: top; }
-        .lesson-table td * { color: #162b33 !important; }
+        .lesson-table { background: #356b70; border-collapse: collapse; color: white !important; width: 100%; font-size: 0.92rem; }
+        .lesson-table th, .lesson-table td { border: 1px solid #9eafb8; color: white !important; padding: 0.65rem; text-align: left; vertical-align: top; }
+        .lesson-table td * { color: white !important; }
         .lesson-table thead { display: table-header-group; }
-        .lesson-table th { background: #dce8ec !important; color: #162b33 !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
-        .esv-reference { color: #075985 !important; cursor: help; position: relative; text-decoration: underline dotted; }
+        .lesson-table th { background: #285257 !important; color: white !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
+        .esv-reference { color: white !important; cursor: help; position: relative; text-decoration: underline dotted; }
         .esv-reference .esv-reference-tooltip { background: #1f2937; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: white !important; display: none !important; font-size: 0.85rem; font-weight: normal; left: 0; line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
         .esv-reference:hover .esv-reference-tooltip, .esv-reference:focus .esv-reference-tooltip { display: block !important; }
         </style>
@@ -294,28 +294,6 @@ def render_calendar():
     )
 
 
-def progress_rows():
-    kids = {row["id"]: row for row in records("kids")}
-    verses = {row["id"]: row for row in records("verses")}
-    rows = []
-    for progress in records("progress"):
-        kid = kids.get(progress.get("kid_id"))
-        verse = verses.get(progress.get("verse_id"))
-        if kid and verse:
-            program_group = kid.get("program_group") or load_roster_groups().get(kid.get("name"), "Unknown")
-            rows.append({
-                "kid_id": progress.get("kid_id"),
-                "name": kid.get("name", ""),
-                "class_group": kid.get("class_group"),
-                "program_group": program_group,
-                "reference": verse.get("reference", ""),
-                "week_date": verse.get("week_date", ""),
-                "memorized": int(progress.get("memorized", 0)),
-                "date_recorded": progress.get("date_recorded"),
-            })
-    return pd.DataFrame(rows, columns=["kid_id", "name", "class_group", "program_group", "reference", "week_date", "memorized", "date_recorded"])
-
-
 def lesson_progress_rows(kid_id):
     lesson_records = {
         row["id"]: row for row in records("lesson_progress")
@@ -339,53 +317,48 @@ def lesson_progress_rows(kid_id):
     return pd.DataFrame(rows)
 
 
-def build_progress_snapshot():
-    kids = records("kids", "name")
-    verses = {row["id"]: row for row in records("verses")}
-    progress_by_kid = {kid["id"]: {} for kid in kids}
-    for progress in records("progress"):
-        kid_id = progress.get("kid_id")
-        verse = verses.get(progress.get("verse_id"))
-        if kid_id in progress_by_kid and verse:
-            progress_by_kid[kid_id][progress["verse_id"]] = {
-                "reference": verse.get("reference", ""),
-                "week_date": verse.get("week_date", ""),
-                "memorized": bool(progress.get("memorized", 0)),
-                "date_recorded": progress.get("date_recorded"),
-            }
-    roster_groups = load_roster_groups()
-    return {
-        "schema_version": 1,
-        "school_year": "2026-2027",
-        "source_of_truth": "Firestore progress collection",
-        "kids": [
-            {
-                "kid_id": kid["id"],
-                "name": kid.get("name", ""),
-                "program_group": kid.get("program_group") or roster_groups.get(kid.get("name"), "Unknown"),
-                "progress": progress_by_kid[kid["id"]],
-            }
-            for kid in kids
-        ],
-    }
+def dashboard_lesson_summary(kids):
+    lesson_records = records("lesson_progress")
+    attendance_records = records("attendance")
+    progress_by_kid = {}
+    for row in lesson_records:
+        kid_id = row.get("kid_id")
+        summary = progress_by_kid.setdefault(kid_id, {"central": 0, "memory": 0, "bonus": 0})
+        summary["central"] += int(row.get("central_truth_completed", 0))
+        summary["memory"] += int(row.get("memory_verse_completed", 0))
+        summary["bonus"] += int(row.get("bonus_verse_completed", 0))
+    attendance_by_kid = {}
+    for row in attendance_records:
+        if row.get("present", 0):
+            kid_id = row.get("kid_id")
+            attendance_by_kid[kid_id] = attendance_by_kid.get(kid_id, 0) + 1
+    total_lessons = len(current_lessons())
+    return pd.DataFrame([
+        {
+            "kid_id": kid["id"],
+            "name": kid.get("name", ""),
+            "class_group": kid.get("class_group"),
+            "attendance": attendance_by_kid.get(kid["id"], 0),
+            "central_truth": progress_by_kid.get(kid["id"], {}).get("central", 0),
+            "memory_verses": progress_by_kid.get(kid["id"], {}).get("memory", 0),
+            "bonus_verses": progress_by_kid.get(kid["id"], {}).get("bonus", 0),
+            "total_lessons": total_lessons,
+        }
+        for kid in kids
+    ])
 
 
 def pin_tracker_rows(kids):
-    regular_counts = {}
-    for progress in records("progress"):
-        if progress.get("memorized", 0):
-            kid_id = progress.get("kid_id")
-            regular_counts[kid_id] = regular_counts.get(kid_id, 0) + 1
-
-    bonus_counts = {}
+    verse_counts = {}
     for progress in records("lesson_progress"):
-        if progress.get("bonus_verse_completed", 0):
-            kid_id = progress.get("kid_id")
-            bonus_counts[kid_id] = bonus_counts.get(kid_id, 0) + 1
+        kid_id = progress.get("kid_id")
+        verse_counts[kid_id] = verse_counts.get(kid_id, 0)
+        verse_counts[kid_id] += int(progress.get("memory_verse_completed", 0))
+        verse_counts[kid_id] += int(progress.get("bonus_verse_completed", 0))
 
     rows = []
     for kid in kids:
-        completed_verses = regular_counts.get(kid["id"], 0) + bonus_counts.get(kid["id"], 0)
+        completed_verses = verse_counts.get(kid["id"], 0)
         rows.append({
             "Name": kid.get("name", ""),
             "Completed Verses": completed_verses,
@@ -441,14 +414,6 @@ elif page == "Lesson Reference":
 elif page == "Dashboard":
     kids = records("kids")
     verses = records("verses")
-    prog_df = progress_rows()
-    if is_verified:
-        st.download_button(
-            "Download current progress JSON",
-            data=json.dumps(build_progress_snapshot(), indent=2),
-            file_name="progress.json",
-            mime="application/json",
-        )
     roster_groups = load_roster_groups()
     for kid in kids:
         kid["program_group"] = kid.get("program_group") or roster_groups.get(kid.get("name"), "Unknown")
@@ -465,7 +430,7 @@ elif page == "Dashboard":
     group_filter = st.selectbox("Group", groups)
     filtered_kids = [kid for kid in kids if group_filter == "All" or kid.get("program_group") == group_filter]
     filtered_kid_ids = {kid["id"] for kid in filtered_kids}
-    filtered_prog_df = prog_df[prog_df["kid_id"].isin(filtered_kid_ids)].copy() if not prog_df.empty else prog_df
+    lesson_summary_df = dashboard_lesson_summary(filtered_kids)
     st.subheader("Kids")
     active_filtered_kids = sorted((kid for kid in filtered_kids if kid.get("active", 1)), key=lambda kid: kid["name"])
     for start in range(0, len(active_filtered_kids), 4):
@@ -483,36 +448,25 @@ elif page == "Dashboard":
     col1, col2, col3 = st.columns(3)
     col1.metric("Active Kids", sum(1 for kid in filtered_kids if kid.get("active", 1)))
     col2.metric("Verses Assigned", len(verses))
-    if not filtered_prog_df.empty:
-        col3.metric("Overall Memorized %", f"{round(100 * filtered_prog_df['memorized'].mean())}%")
+    if not lesson_summary_df.empty:
+        col3.metric("Overall Memorized %", f"{round(100 * lesson_summary_df['memory_verses'].sum() / max(1, len(filtered_kids) * lesson_summary_df['total_lessons'].iloc[0]))}%")
         st.subheader("Progress by Kid")
-        summary = filtered_prog_df.groupby(["kid_id", "name", "class_group"])["memorized"].agg(memorized="sum", total="count").reset_index()
-        summary["% memorized"] = (100 * summary["memorized"] / summary["total"]).round().astype(int)
-        summary = summary.sort_values("name")
-        st.dataframe(summary.drop(columns=["kid_id"]), use_container_width=True, hide_index=True)
+        summary = lesson_summary_df.rename(columns={
+            "attendance": "Attendance",
+            "central_truth": "Central Truths",
+            "memory_verses": "Memory Verses",
+            "bonus_verses": "Bonus Verses",
+        }).sort_values("name")
+        st.dataframe(summary.drop(columns=["kid_id", "total_lessons"]), use_container_width=True, hide_index=True)
         selected_kid_id = st.session_state.get("dashboard_kid_id")
         if selected_kid_id in filtered_kid_ids:
-            selected_kid = next(kid for kid in filtered_kids if kid["id"] == selected_kid_id)
-            st.subheader(f"{selected_kid['name']}'s Verse Progress")
-            kid_progress = filtered_prog_df[filtered_prog_df["kid_id"] == selected_kid_id].copy()
-            if kid_progress.empty:
-                st.info("No progress recorded yet for this kid.")
-            else:
-                kid_progress["memorized"] = kid_progress["memorized"].map({1: "✅ Memorized", 0: "⏳ In progress"})
-                st.dataframe(kid_progress[["reference", "week_date", "memorized", "date_recorded"]], use_container_width=True, hide_index=True)
             st.subheader("Lesson Progress")
             st.dataframe(lesson_progress_rows(selected_kid_id), use_container_width=True, hide_index=True)
-        st.subheader("All Records")
-        display_df = filtered_prog_df.copy()
-        display_df["memorized"] = display_df["memorized"].map({1: "✅ Memorized", 0: "⏳ In progress"})
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
         col3.metric("Overall Memorized %", "0%")
         selected_kid_id = st.session_state.get("dashboard_kid_id")
         if selected_kid_id in filtered_kid_ids:
             selected_kid = next(kid for kid in filtered_kids if kid["id"] == selected_kid_id)
-            st.subheader(f"{selected_kid['name']}'s Verse Progress")
-            st.info("No progress recorded yet for this kid.")
             st.subheader("Lesson Progress")
             st.dataframe(lesson_progress_rows(selected_kid_id), use_container_width=True, hide_index=True)
         else:
@@ -741,11 +695,11 @@ elif page == "Roster":
         st.markdown(
             """
             <style>
-            .roster-table { border-collapse: collapse; color: #162b33 !important; width: 100%; }
-            .roster-table th, .roster-table td { border: 1px solid #9eafb8; color: #162b33 !important; padding: .65rem; text-align: left; vertical-align: top; }
-            .roster-table td * { color: #162b33 !important; }
-            .roster-table th { background: #dce8ec !important; color: #162b33 !important; font-weight: 700; }
-            .roster-table a { color: #162b33 !important; font-weight: 600; }
+            .roster-table { background: #356b70; border-collapse: collapse; color: white !important; width: 100%; }
+            .roster-table th, .roster-table td { border: 1px solid #9eafb8; color: white !important; padding: .65rem; text-align: left; vertical-align: top; }
+            .roster-table td * { color: white !important; }
+            .roster-table th { background: #285257 !important; color: white !important; font-weight: 700; }
+            .roster-table a { color: white !important; font-weight: 600; }
             </style>
             """
             "<table class='roster-table'><thead><tr>"

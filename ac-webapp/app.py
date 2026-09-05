@@ -5,6 +5,7 @@ import csv
 import base64
 import html
 import json
+import re
 from pathlib import Path
 from datetime import date
 from urllib.parse import quote
@@ -41,9 +42,9 @@ st.markdown(
     <style>
     [data-testid="stAppViewContainer"]::before {{
         background-image: url("data:image/png;base64,{load_watermark_data()}");
-        background-position: center 58%;
+        background-position: center center;
         background-repeat: no-repeat;
-        background-size: min(560px, 62vw);
+        background-size: min(616px, 68.2vw);
         content: "";
         inset: 0;
         opacity: 0.075;
@@ -180,12 +181,13 @@ def get_esv_text(reference):
     return passages[0].strip() if passages else "ESV text was not found."
 
 
-def esv_reference(reference):
+def esv_reference(reference, class_name="esv-reference"):
     if not reference:
         return ""
     text = html.escape(get_esv_text(reference))
     label = html.escape(reference)
-    return f'<span class="esv-reference" tabindex="0">{label}<span class="esv-tooltip">{text}</span></span>'
+    tooltip_class = f"{class_name}-tooltip"
+    return f'<span class="{class_name}" tabindex="0">{label}<span class="{tooltip_class}">{text}</span></span>'
 
 
 def render_lesson_reference():
@@ -194,13 +196,13 @@ def render_lesson_reference():
     st.markdown(
         """
         <style>
-        .lesson-table { border-collapse: collapse; color: #24343b; width: 100%; font-size: 0.92rem; }
-        .lesson-table th, .lesson-table td { border: 1px solid #c7d1d8; padding: 0.65rem; text-align: left; vertical-align: top; }
+        .lesson-table { border-collapse: collapse; color: #162b33 !important; width: 100%; font-size: 0.92rem; }
+        .lesson-table th, .lesson-table td { border: 1px solid #9eafb8; color: #162b33 !important; padding: 0.65rem; text-align: left; vertical-align: top; }
         .lesson-table thead { display: table-header-group; }
         .lesson-table th { background: #dce8ec !important; color: #162b33 !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
-        .esv-reference { color: #1261a0; cursor: help; position: relative; text-decoration: underline dotted; }
-        .esv-tooltip { background: #1f2937; border-radius: 0.35rem; bottom: 1.6rem; color: white; display: none; font-size: 0.85rem; font-weight: normal; left: 0; line-height: 1.45; padding: 0.7rem; position: absolute; width: min(28rem, 70vw); z-index: 10; }
-        .esv-reference:hover .esv-tooltip, .esv-reference:focus .esv-tooltip { display: block; }
+        .esv-reference { color: #075985 !important; cursor: help; position: relative; text-decoration: underline dotted; }
+        .esv-tooltip { background: #1f2937; border-radius: 0.35rem; bottom: 1.6rem; color: white; display: none !important; font-size: 0.85rem; font-weight: normal; left: 0; line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+        .esv-reference:hover .esv-tooltip, .esv-reference:focus .esv-tooltip { display: block !important; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -302,6 +304,31 @@ def build_progress_snapshot():
     }
 
 
+def pin_tracker_rows(kids):
+    regular_counts = {}
+    for progress in records("progress"):
+        if progress.get("memorized", 0):
+            kid_id = progress.get("kid_id")
+            regular_counts[kid_id] = regular_counts.get(kid_id, 0) + 1
+
+    bonus_counts = {}
+    for progress in records("lesson_progress"):
+        if progress.get("bonus_verse_completed", 0):
+            kid_id = progress.get("kid_id")
+            bonus_counts[kid_id] = bonus_counts.get(kid_id, 0) + 1
+
+    rows = []
+    for kid in kids:
+        completed_verses = regular_counts.get(kid["id"], 0) + bonus_counts.get(kid["id"], 0)
+        rows.append({
+            "Name": kid.get("name", ""),
+            "Completed Verses": completed_verses,
+            "Pins Received": completed_verses // 5,
+            "Verses Until Next Pin": 5 - (completed_verses % 5),
+        })
+    return rows
+
+
 def progress_id(kid_id, verse_id):
     return f"{kid_id}_{verse_id}"
 
@@ -312,6 +339,17 @@ def lesson_progress_id(kid_id, lesson_number):
 
 def render_reference_label(label, reference):
     return f'<span title="{html.escape(reference, quote=True)}">{html.escape(label)}</span>'
+
+
+def emergency_contact_html(contact):
+    escaped_contact = html.escape(contact or "")
+
+    def phone_link(match):
+        phone = match.group(0)
+        digits = re.sub(r"\D", "", phone)
+        return f'<a href="tel:{digits}">{phone}</a>'
+
+    return re.sub(r"(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}", phone_link, escaped_contact)
 
 
 
@@ -326,7 +364,7 @@ else:
     is_verified = False
 
 st.title(f"📖 {APP_TITLE}")
-page = st.sidebar.radio("Navigate", ["Dashboard", "Record Progress", "Lesson Reference", "Calendar", "Manage Kids"])
+page = st.sidebar.radio("Navigate", ["Dashboard", "Record Progress", "Game Groups", "Roster", "Lesson Reference", "Calendar", "Manage Kids"])
 
 if page == "Calendar":
     render_calendar()
@@ -357,7 +395,7 @@ elif page == "Dashboard":
             class_name,
         ),
     )
-    groups.append("All")
+    groups.insert(0, "All")
     group_filter = st.selectbox("Group", groups)
     filtered_kids = [kid for kid in kids if group_filter == "All" or kid.get("program_group") == group_filter]
     filtered_kid_ids = {kid["id"] for kid in filtered_kids}
@@ -369,6 +407,13 @@ elif page == "Dashboard":
         for button, kid in zip(buttons, active_filtered_kids[start:start + 4]):
             if button.button(kid["name"], key=f"dashboard_kid_{kid['id']}"):
                 st.session_state["dashboard_kid_id"] = kid["id"]
+    st.subheader("Pin Tracker")
+    st.caption("Kids receive one pin for every five memorized regular or bonus verses.")
+    st.dataframe(
+        pd.DataFrame(pin_tracker_rows(active_filtered_kids)),
+        use_container_width=True,
+        hide_index=True,
+    )
     col1, col2, col3 = st.columns(3)
     col1.metric("Active Kids", sum(1 for kid in filtered_kids if kid.get("active", 1)))
     col2.metric("Verses Assigned", len(verses))
@@ -469,47 +514,67 @@ elif page == "Record Progress":
         bonus_classes = {"Scouts1", "Scouts2", "Trailblazers1", "Trailblazers2"}
         selected_kid = next(kid for kid in class_kids if kid["id"] == selected_kid_id)
         bonus_enabled = selected_kid.get("program_group") in bonus_classes
+        bonus_column_visible = selected_class not in {"Trackers1", "Trackers2", "Trackers3", "Trackers4"}
 
+        st.markdown('<div id="record-progress-top"></div>', unsafe_allow_html=True)
         st.subheader("Progress Chart")
         st.caption("Hover over a week, central truth, or verse reference to see its full reference.")
         st.markdown(
             """
             <style>
             .progress-grid { overflow-x: auto; }
-            .progress-grid-header, .progress-grid-row { align-items: center; display: grid; grid-template-columns: 2.3fr .55fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; gap: .5rem; min-width: 900px; }
-            .progress-grid-header { background: #dce8ec; color: #162b33; font-weight: 700; padding: .55rem; }
-            .progress-grid-row { border-bottom: 1px solid #c7d1d8; padding: .35rem .55rem; }
-            .progress-grid-row span[title], .esv-reference { cursor: help; text-decoration: underline dotted; }
-            .esv-reference { color: #1261a0; position: relative; }
-            .esv-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none; font-size: .85rem; font-weight: normal; left: 0; line-height: 1.45; padding: .7rem; position: absolute; width: min(28rem, 70vw); z-index: 10; }
-            .esv-reference:hover .esv-tooltip, .esv-reference:focus .esv-tooltip { display: block; }
+            .progress-grid-header, .progress-grid-row { align-items: center; display: grid; gap: .5rem; min-width: 760px; }
+            .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: 2.3fr .55fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; min-width: 900px; }
+            .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: 2.3fr .55fr .55fr 1.8fr .55fr 1.2fr; }
+            .progress-grid-header { background: #dce8ec; border: 1px solid #81959e; color: #162b33; font-weight: 700; padding: .55rem; }
+            .progress-grid-row { border-bottom: 1px solid #9eafb8; padding: .35rem .55rem; }
+            .progress-grid-row span[title], .progress-esv-reference { cursor: help; text-decoration: underline dotted; }
+            .progress-esv-reference { color: #075985 !important; display: inline-block; position: relative; }
+            .progress-esv-reference .progress-esv-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none !important; font-size: .85rem; font-weight: normal; left: 0; line-height: 1.45; padding: .7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+            .progress-esv-reference:hover .progress-esv-tooltip, .progress-esv-reference:focus .progress-esv-tooltip { display: block !important; }
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] { border-bottom: 1px solid #9eafb8; border-left: 1px solid #9eafb8; border-right: 1px solid #9eafb8; padding: .35rem .25rem; }
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-right: 1px solid #c1cdd2; min-height: 2.5rem; padding: 0 .35rem; }
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child { border-right: 0; }
+            [data-testid="stFormSubmitButton"] { bottom: 1rem; position: fixed; right: 2rem; z-index: 1000; }
+            [data-testid="stFormSubmitButton"] button { box-shadow: 0 3px 12px rgba(22, 43, 51, .28); }
+            .record-progress-top-link { background: #356b70; border-radius: .35rem; color: white !important; display: inline-block; font-weight: 700; margin: 1rem 0 2rem; padding: .55rem 1rem; text-decoration: none !important; }
+            .record-progress-top-link:hover { background: #285257; }
             </style>
             """,
             unsafe_allow_html=True,
         )
         with st.form("record_lesson_progress"):
             st.markdown(
-                "<div class='progress-grid'><div class='progress-grid-header'><span>Week</span><span>Attendance</span><span></span><span>Central Truth</span><span></span><span>Memory Verse</span><span></span><span>Bonus Verse</span></div>",
+                f"<div class='progress-grid'><div class='progress-grid-header {'has-bonus' if bonus_column_visible else 'no-bonus'}'><span>Week</span><span>Attendance</span><span></span><span>Central Truth</span><span></span><span>Memory Verse</span>{'<span></span><span>Bonus Verse</span>' if bonus_column_visible else ''}</div>",
                 unsafe_allow_html=True,
             )
             lesson_results = {}
             for lesson in current_lessons():
                 lesson_id = lesson["Lesson Number"]
+                is_review_week = lesson_id.startswith("Review")
                 existing = existing_lessons.get(lesson_progress_id(selected_kid_id, lesson_id), {})
                 lesson_date = lesson["Date"]
                 central_truth_key = f"central_{selected_kid_id}_{lesson_id}"
                 memory_key = f"memory_{selected_kid_id}_{lesson_id}"
                 bonus_key = f"bonus_{selected_kid_id}_{lesson_id}"
                 attendance_key = f"lesson_attendance_{selected_kid_id}_{lesson_id}"
-                row_cols = st.columns([2.3, .55, .55, 1.8, .55, 1.2, .55, 1.2])
+                row_cols = st.columns([2.3, .55] if is_review_week else ([2.3, .55, .55, 1.8, .55, 1.2, .55, 1.2] if bonus_column_visible else [2.3, .55, .55, 1.8, .55, 1.2]))
                 row_cols[0].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
                 attendance_checked = row_cols[1].checkbox("Present", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key, label_visibility="collapsed")
-                central_checked = row_cols[2].checkbox("Done", value=bool(existing.get("central_truth_completed", 0)), key=central_truth_key, label_visibility="collapsed")
-                row_cols[3].markdown(render_reference_label(lesson["Central Truth"], lesson["Central Truth"]), unsafe_allow_html=True)
-                memory_checked = row_cols[4].checkbox("Done", value=bool(existing.get("memory_verse_completed", 0)), key=memory_key, label_visibility="collapsed")
-                row_cols[5].markdown(esv_reference(lesson["Memory Verse"]), unsafe_allow_html=True)
-                bonus_checked = row_cols[6].checkbox("Done", value=bool(existing.get("bonus_verse_completed", 0)), key=bonus_key, label_visibility="collapsed", disabled=not bonus_enabled)
-                row_cols[7].markdown(esv_reference(lesson["Bonus Verse"]), unsafe_allow_html=True)
+                if is_review_week:
+                    central_checked = False
+                    memory_checked = False
+                    bonus_checked = False
+                else:
+                    central_checked = row_cols[2].checkbox("Done", value=bool(existing.get("central_truth_completed", 0)), key=central_truth_key, label_visibility="collapsed")
+                    row_cols[3].markdown(render_reference_label(lesson["Central Truth"], lesson["Central Truth"]), unsafe_allow_html=True)
+                    memory_checked = row_cols[4].checkbox("Done", value=bool(existing.get("memory_verse_completed", 0)), key=memory_key, label_visibility="collapsed")
+                    row_cols[5].markdown(esv_reference(lesson["Memory Verse"], "progress-esv-reference"), unsafe_allow_html=True)
+                    if bonus_column_visible:
+                        bonus_checked = row_cols[6].checkbox("Done", value=bool(existing.get("bonus_verse_completed", 0)), key=bonus_key, label_visibility="collapsed", disabled=not bonus_enabled)
+                        row_cols[7].markdown(esv_reference(lesson["Bonus Verse"], "progress-esv-reference"), unsafe_allow_html=True)
+                    else:
+                        bonus_checked = False
                 lesson_results[lesson_id] = {"attendance": attendance_checked, "central": central_checked, "memory": memory_checked, "bonus": bonus_checked, "date": lesson_date}
             st.markdown("</div>", unsafe_allow_html=True)
             if st.form_submit_button("Save Lesson Progress"):
@@ -534,3 +599,83 @@ elif page == "Record Progress":
                     )
                 st.success("30-week progress saved.")
                 st.rerun()
+            st.markdown('<a class="record-progress-top-link" href="#record-progress-top">Top</a>', unsafe_allow_html=True)
+
+elif page == "Game Groups":
+    kids = [kid for kid in records("kids", "name") if kid.get("active", 1)]
+    rotation = st.selectbox("Rotation", ["Trackers", "Scouts/Trailblazers"])
+    game_group = st.selectbox("Game Group", ["All", "Blue", "Green", "Red", "Yellow"])
+
+    if rotation == "Trackers":
+        rotation_kids = [kid for kid in kids if kid.get("program_group", "").startswith("Trackers")]
+    else:
+        rotation_kids = [kid for kid in kids if not kid.get("program_group", "").startswith("Trackers")]
+
+    if game_group == "All":
+        visible_kids = rotation_kids
+    else:
+        visible_kids = [kid for kid in rotation_kids if (kid.get("class_group") or "").lower() == game_group.lower()]
+    visible_kids.sort(key=lambda kid: kid.get("name", "").casefold())
+
+    st.subheader(f"{rotation} Game Groups")
+    st.caption(f"{len(visible_kids)} kids")
+    if not visible_kids:
+        st.info("No kids match the selected filters.")
+    else:
+        group_rows = [
+            {
+                "Name": kid.get("name", ""),
+                "Game Group": (kid.get("class_group") or "").title() or "Unassigned",
+                "Class": kid.get("program_group", "") or "Unassigned",
+            }
+            for kid in visible_kids
+        ]
+        st.dataframe(pd.DataFrame(group_rows), use_container_width=True, hide_index=True)
+
+elif page == "Roster":
+    if not is_verified:
+        st.warning("Enable Teacher Mode and enter the teacher PIN to view the roster.")
+    else:
+        kids = [kid for kid in records("kids", "name") if kid.get("active", 1)]
+        class_order = {"Trackers": 0, "Scouts": 1, "Trailblazers": 2}
+        groups = sorted(
+            {kid.get("program_group") for kid in kids if kid.get("program_group")},
+            key=lambda group: (
+                class_order.get(group.rstrip("1234567890"), len(class_order)),
+                int(group[len(group.rstrip("1234567890")): ] or 0),
+                group,
+            ),
+        )
+        groups.insert(0, "All")
+        selected_group = st.selectbox("Group", groups, index=0)
+        visible_kids = [
+            kid for kid in kids
+            if selected_group == "All" or kid.get("program_group") == selected_group
+        ]
+        visible_kids.sort(key=lambda kid: kid.get("name", "").casefold())
+
+        st.subheader("Kids Roster")
+        st.caption(f"{len(visible_kids)} kids")
+        roster_rows = [
+            "<tr>"
+            f"<td>{html.escape(kid.get('name', ''))}</td>"
+            f"<td>{emergency_contact_html(kid.get('emergency_contact', ''))}</td>"
+            f"<td>{html.escape(kid.get('medical_notes', '') or 'None')}</td>"
+            f"<td>{html.escape((kid.get('class_group') or 'Unassigned').title())}</td>"
+            "</tr>"
+            for kid in visible_kids
+        ]
+        st.markdown(
+            """
+            <style>
+            .roster-table { border-collapse: collapse; color: #162b33 !important; width: 100%; }
+            .roster-table th, .roster-table td { border: 1px solid #9eafb8; color: #162b33 !important; padding: .65rem; text-align: left; vertical-align: top; }
+            .roster-table th { background: #dce8ec !important; font-weight: 700; }
+            .roster-table a { color: #075985; font-weight: 600; }
+            </style>
+            """
+            "<table class='roster-table'><thead><tr>"
+            "<th>Name</th><th>Emergency Contact</th><th>Medical Notes</th><th>Game Group</th>"
+            f"</tr></thead><tbody>{''.join(roster_rows)}</tbody></table>",
+            unsafe_allow_html=True,
+        )

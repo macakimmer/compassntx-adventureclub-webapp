@@ -40,7 +40,7 @@ st.markdown(
     f"""
     <style>
     [data-testid="stAppViewContainer"]::before {{
-        background-image: url("data:image/svg+xml;base64,{load_watermark_data()}");
+        background-image: url("data:image/png;base64,{load_watermark_data()}");
         background-position: center 58%;
         background-repeat: no-repeat;
         background-size: min(560px, 62vw);

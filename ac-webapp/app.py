@@ -267,7 +267,7 @@ def render_lesson_reference():
         .lesson-table thead { display: table-header-group; }
         .lesson-table th { background: #285257 !important; color: white !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
         .esv-reference { color: white !important; cursor: default; position: relative; text-decoration: underline dotted; }
-        .esv-reference .esv-reference-tooltip { background: #1f2937; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: white !important; display: none !important; font-size: 0.85rem; font-weight: normal; top: 100%; left: 50%; transform: translateX(-50%); line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+        .esv-reference .esv-reference-tooltip { background: white; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: black !important; display: none !important; font-size: 0.85rem; font-weight: normal; top: 100%; left: 50%; transform: translateX(-50%); line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
         .esv-reference:hover .esv-reference-tooltip, .esv-reference:focus .esv-reference-tooltip { display: block !important; }
         </style>
         """,
@@ -483,7 +483,7 @@ elif page == "Lesson Reference":
     render_lesson_reference()
 
 elif page == "Pin Tracker":
-    groups, kids = get_kids_for_dashboard()
+    kids, groups, class_order, roster_groups = get_kids_for_dashboard()
     st.subheader("Pin Tracker")
     st.caption("Kids receive one pin for every five memorized regular or bonus verses.")
     group_filter = st.selectbox("Group", groups)

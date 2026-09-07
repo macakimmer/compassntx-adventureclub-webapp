@@ -586,8 +586,10 @@ elif page == "Record Progress":
         - ✅ Take Attendance
         - ✅ Review Central Truth
         - ✅ Record (Central Truth, Memory Verse [Bonus Verse for Scouts & Trailblazers])
-            - Select your group in filter below and check off where completed (check boxes come before the text)
-            - Put a sticker from your leaders book to kid's book for memory verse
+            - Select your group in filter below 
+            - Select a kid in the second filter below
+            - Check off where completed (check boxes come before the text) - BE SURE TO CLICK THE "SAVE LESSON PROGRESS" BUTTON AT THE BOTTOM OF THE SCREEN WHEN DONE
+            - Put a sticker from your leader's book to kid's book for memory verse completed
         - ✅ Lesson Activities
         - ✅ Share Prayer Requests
         - ✅ Build Relationships, Foster Group Fellowship

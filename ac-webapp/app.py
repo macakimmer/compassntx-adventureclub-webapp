@@ -474,7 +474,15 @@ else:
     is_verified = False
 
 st.title(f"📖 {APP_TITLE}")
-page = st.sidebar.radio("Navigate", ["Record Progress", "Dashboard", "Game Groups", "Lesson Reference", "Pin Tracker", "Calendar", "Roster", "Manage Kids"])
+page = st.sidebar.radio("Navigate", [
+    "Record Progress", 
+    "Dashboard", 
+    "Game Groups", 
+    "Lesson Reference", 
+    "Pin Tracker", 
+    "Calendar", 
+    "Roster", 
+    "Manage Kids"])
 
 if page == "Calendar":
     render_calendar()

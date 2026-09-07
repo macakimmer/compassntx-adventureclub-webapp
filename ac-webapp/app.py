@@ -460,12 +460,7 @@ def get_kids_for_dashboard():
         ),
     )
     groups.insert(0, "All")
-    group_filter = st.selectbox("Group", groups)
-    filtered_kids = [kid for kid in kids if group_filter == "All" or kid.get("program_group") == group_filter]
-    filtered_kid_ids = {kid["id"] for kid in filtered_kids}
-    lesson_summary_df = dashboard_lesson_summary(filtered_kids)
-    active_filtered_kids = sorted((kid for kid in filtered_kids if kid.get("active", 1)), key=lambda kid: kid["name"])
-    return active_filtered_kids, filtered_kid_ids, lesson_summary_df, kids
+    return kids, groups, class_order, roster_groups
 
 
 st.sidebar.header("🔑 Teacher Portal")
@@ -488,9 +483,14 @@ elif page == "Lesson Reference":
     render_lesson_reference()
 
 elif page == "Pin Tracker":
-    active_filtered_kids, filtered_kid_ids, lesson_summary_df = get_kids_for_dashboard()
+    groups, kids = get_kids_for_dashboard()
     st.subheader("Pin Tracker")
     st.caption("Kids receive one pin for every five memorized regular or bonus verses.")
+    group_filter = st.selectbox("Group", groups)
+    filtered_kids = [kid for kid in kids if group_filter == "All" or kid.get("program_group") == group_filter]
+    filtered_kid_ids = {kid["id"] for kid in filtered_kids}
+    lesson_summary_df = dashboard_lesson_summary(filtered_kids)
+    active_filtered_kids = sorted((kid for kid in filtered_kids if kid.get("active", 1)), key=lambda kid: kid["name"])
     st.dataframe(
         pd.DataFrame(pin_tracker_rows(active_filtered_kids)),
         use_container_width=True,
@@ -498,16 +498,7 @@ elif page == "Pin Tracker":
     )
 
 elif page == "Dashboard":
-    active_filtered_kids, filtered_kid_ids, lesson_summary_df, kids = get_kids_for_dashboard()
-    groups = sorted(
-        {kid.get("program_group") for kid in kids if kid.get("program_group")},
-        key=lambda class_name: (
-            class_order.get(class_name.rstrip("1234567890"), len(class_order)),
-            int(class_name[len(class_name.rstrip("1234567890")): ] or 0),
-            class_name,
-        ),
-    )
-    groups.insert(0, "All")
+    kids, groups, class_order, roster_groups = get_kids_for_dashboard()
     group_filter = st.selectbox("Group", groups)
     filtered_kids = [kid for kid in kids if group_filter == "All" or kid.get("program_group") == group_filter]
     filtered_kid_ids = {kid["id"] for kid in filtered_kids}

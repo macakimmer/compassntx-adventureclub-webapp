@@ -267,7 +267,7 @@ def render_lesson_reference():
         .lesson-table thead { display: table-header-group; }
         .lesson-table th { background: #285257 !important; color: white !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
         .esv-reference { color: white !important; cursor: default; position: relative; text-decoration: underline dotted; }
-        .esv-reference .esv-reference-tooltip { background: white; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: black !important; display: none !important; font-size: 0.85rem; font-weight: normal; top: 100%; left: 50%; transform: translateX(-50%); line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+        .esv-reference .esv-reference-tooltip { background: white; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: black !important; display: none !important; font-size: 0.85rem; font-weight: normal; top: 100%; left: 50%;  line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; } /*transform: translateX(-50%);*/
         .esv-reference:hover .esv-reference-tooltip, .esv-reference:focus .esv-reference-tooltip { display: block !important; }
         </style>
         """,
@@ -474,7 +474,7 @@ else:
     is_verified = False
 
 st.title(f"📖 {APP_TITLE}")
-page = st.sidebar.radio("Navigate", ["Dashboard", "Record Progress", "Game Groups", "Roster", "Calendar", "Pin Tracker", "Lesson Reference", "Manage Kids"])
+page = st.sidebar.radio("Navigate", ["Record Progress", "Dashboard", "Game Groups", "Roster", "Calendar", "Pin Tracker", "Lesson Reference", "Manage Kids"])
 
 if page == "Calendar":
     render_calendar()
@@ -503,13 +503,6 @@ elif page == "Dashboard":
     filtered_kids = [kid for kid in kids if group_filter == "All" or kid.get("program_group") == group_filter]
     filtered_kid_ids = {kid["id"] for kid in filtered_kids}
     lesson_summary_df = dashboard_lesson_summary(filtered_kids)
-    st.subheader("Kids")
-    active_filtered_kids = sorted((kid for kid in filtered_kids if kid.get("active", 1)), key=lambda kid: kid["name"])
-    for start in range(0, len(active_filtered_kids), 4):
-        buttons = st.columns(4)
-        for button, kid in zip(buttons, active_filtered_kids[start:start + 4]):
-            if button.button(kid["name"], key=f"dashboard_kid_{kid['id']}"):
-                st.session_state["dashboard_kid_id"] = kid["id"]
     col1, col2, col3 = st.columns(3)
     col1.metric("Active Kids", sum(1 for kid in filtered_kids if kid.get("active", 1)))
     col2.metric("Latest Lesson Completed", latest_occurred_lesson_number())
@@ -536,6 +529,13 @@ elif page == "Dashboard":
             st.dataframe(lesson_progress_rows(selected_kid_id), use_container_width=True, hide_index=True)
         else:
             st.info("No progress recorded yet. Add kids and verses, then use **Record Progress**.")
+    st.subheader("Kids")
+    active_filtered_kids = sorted((kid for kid in filtered_kids if kid.get("active", 1)), key=lambda kid: kid["name"])
+    for start in range(0, len(active_filtered_kids), 4):
+        buttons = st.columns(4)
+        for button, kid in zip(buttons, active_filtered_kids[start:start + 4]):
+            if button.button(kid["name"], key=f"dashboard_kid_{kid['id']}"):
+                st.session_state["dashboard_kid_id"] = kid["id"]
 
 elif page == "Manage Kids":
     if not is_verified:
@@ -578,6 +578,21 @@ elif page == "Manage Kids":
                 st.rerun()
 
 elif page == "Record Progress":
+    # reminder of class expectations each week
+    st.subheader("Small Groups Checklist")
+    st.markdown(
+        """
+        - ✅ Pray
+        - ✅ Take Attendance
+        - ✅ Review Central Truth
+        - ✅ Record (Central Truth, Memory Verse [Bonus Verse for Scouts & Trailblazers])
+            - Select your group in filter below and check off where completed (check boxes come before the text)
+            - Put a sticker from your leaders book to kid's book for memory verse
+        - ✅ Lesson Activities
+        - ✅ Share Prayer Requests
+        - ✅ Build Relationships, Foster Group Fellowship
+        """
+    )
     all_kids = [kid for kid in records("kids", "name") if kid.get("active", 1)]
     class_order = {"Trackers": 0, "Scouts": 1, "Trailblazers": 2}
     classes = sorted(

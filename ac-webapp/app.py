@@ -465,7 +465,7 @@ def get_kids_for_dashboard():
     filtered_kid_ids = {kid["id"] for kid in filtered_kids}
     lesson_summary_df = dashboard_lesson_summary(filtered_kids)
     active_filtered_kids = sorted((kid for kid in filtered_kids if kid.get("active", 1)), key=lambda kid: kid["name"])
-    return active_filtered_kids, filtered_kid_ids, lesson_summary_df
+    return active_filtered_kids, filtered_kid_ids, lesson_summary_df, kids
 
 
 st.sidebar.header("🔑 Teacher Portal")
@@ -498,7 +498,7 @@ elif page == "Pin Tracker":
     )
 
 elif page == "Dashboard":
-    active_filtered_kids, filtered_kid_ids, lesson_summary_df = get_kids_for_dashboard()
+    active_filtered_kids, filtered_kid_ids, lesson_summary_df, kids = get_kids_for_dashboard()
     groups = sorted(
         {kid.get("program_group") for kid in kids if kid.get("program_group")},
         key=lambda class_name: (

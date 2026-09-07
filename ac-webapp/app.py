@@ -427,12 +427,12 @@ def latest_occurred_lesson_number():
     mixed formats like '3' vs 'Y2L2')."""
     latest_date = None
     latest_lesson = None
- 
-    for doc in records("lesson_dates"):
-        lesson_number = doc.id
+    lessons = records("lesson_dates")
+    for l in lessons:
+        lesson_number = l["id"]
         if "review" in lesson_number.lower():
             continue
-        raw_date = doc.to_dict().get("date")
+        raw_date = l["date"]
         if raw_date is None:
             continue
         dk = date_key(raw_date)

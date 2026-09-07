@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+firebase-key.json
+sheets-key.json
+debug*

@@ -7,7 +7,8 @@ import html
 import json
 import re
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import quote
 
 import pandas as pd
@@ -28,6 +29,10 @@ CALENDAR_ID = os.environ.get(
     "c_d659594b907cdc6b6b3e82b1c5f82f74249ecfd4abacbbfc3119fb6e34cfa6ee@group.calendar.google.com",
 )
 CALENDAR_TIMEZONE = os.environ.get("CALENDAR_TIMEZONE", "America/Chicago")
+
+CENTRAL = ZoneInfo("America/Chicago")
+today = datetime.now(CENTRAL)
+today_str = today.date().isoformat()
 
 st.set_page_config(page_title=APP_TITLE, page_icon="📖", layout="wide")
 
@@ -256,7 +261,7 @@ def render_lesson_reference():
     st.markdown(
         """
         <style>
-        .lesson-table { background: #356b70; border-collapse: collapse; color: white !important; width: 100%; font-size: 0.92rem; }
+        .lesson-table { background: black; border-collapse: collapse; color: white !important; width: 100%; font-size: 0.92rem; }
         .lesson-table th, .lesson-table td { border: 1px solid #9eafb8; color: white !important; padding: 0.65rem; text-align: left; vertical-align: top; }
         .lesson-table td * { color: white !important; }
         .lesson-table thead { display: table-header-group; }
@@ -408,6 +413,59 @@ def emergency_contact_html(contact):
 
     return re.sub(r"(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}", phone_link, escaped_contact)
 
+def date_key(d):
+    """Normalize a Firestore Timestamp (returned as datetime) or a date string
+    to a plain 'YYYY-MM-DD' key in America/Chicago local time."""
+    if hasattr(d, "date"):
+        return d.astimezone(CENTRAL).date().isoformat()
+    return str(d)[:10]
+
+def latest_occurred_lesson_number():
+    """The single most recently occurred lesson_number (on or before today,
+    excluding Review weeks) -- picked by actual date, not by sorting the
+    lesson_number strings themselves (which wouldn't order correctly across
+    mixed formats like '3' vs 'Y2L2')."""
+    latest_date = None
+    latest_lesson = None
+ 
+    for doc in records("lesson_dates"):
+        lesson_number = doc.id
+        if "review" in lesson_number.lower():
+            continue
+        raw_date = doc.to_dict().get("date")
+        if raw_date is None:
+            continue
+        dk = date_key(raw_date)
+        if dk > today_str:
+            continue
+        if latest_date is None or dk > latest_date:
+            latest_date = dk
+            latest_lesson = lesson_number
+ 
+    return latest_lesson
+
+def get_kids_for_dashboard():
+    kids = records("kids")
+    verses = records("verses")
+    roster_groups = load_roster_groups()
+    for kid in kids:
+        kid["program_group"] = kid.get("program_group") or roster_groups.get(kid.get("name"), "Unknown")
+    class_order = {"Trackers": 0, "Scouts": 1, "Trailblazers": 2}
+    groups = sorted(
+        {kid.get("program_group") for kid in kids if kid.get("program_group")},
+        key=lambda class_name: (
+            class_order.get(class_name.rstrip("1234567890"), len(class_order)),
+            int(class_name[len(class_name.rstrip("1234567890")): ] or 0),
+            class_name,
+        ),
+    )
+    groups.insert(0, "All")
+    group_filter = st.selectbox("Group", groups)
+    filtered_kids = [kid for kid in kids if group_filter == "All" or kid.get("program_group") == group_filter]
+    filtered_kid_ids = {kid["id"] for kid in filtered_kids}
+    lesson_summary_df = dashboard_lesson_summary(filtered_kids)
+    active_filtered_kids = sorted((kid for kid in filtered_kids if kid.get("active", 1)), key=lambda kid: kid["name"])
+    return active_filtered_kids, filtered_kid_ids, lesson_summary_df
 
 
 st.sidebar.header("🔑 Teacher Portal")
@@ -421,7 +479,7 @@ else:
     is_verified = False
 
 st.title(f"📖 {APP_TITLE}")
-page = st.sidebar.radio("Navigate", ["Dashboard", "Record Progress", "Game Groups", "Roster", "Lesson Reference", "Calendar", "Manage Kids"])
+page = st.sidebar.radio("Navigate", ["Dashboard", "Record Progress", "Game Groups", "Roster", "Calendar", "Pin Tracker", "Lesson Reference", "Manage Kids"])
 
 if page == "Calendar":
     render_calendar()
@@ -429,13 +487,18 @@ if page == "Calendar":
 elif page == "Lesson Reference":
     render_lesson_reference()
 
+elif page == "Pin Tracker":
+    active_filtered_kids, filtered_kid_ids, lesson_summary_df = get_kids_for_dashboard()
+    st.subheader("Pin Tracker")
+    st.caption("Kids receive one pin for every five memorized regular or bonus verses.")
+    st.dataframe(
+        pd.DataFrame(pin_tracker_rows(active_filtered_kids)),
+        use_container_width=True,
+        hide_index=True,
+    )
+
 elif page == "Dashboard":
-    kids = records("kids")
-    verses = records("verses")
-    roster_groups = load_roster_groups()
-    for kid in kids:
-        kid["program_group"] = kid.get("program_group") or roster_groups.get(kid.get("name"), "Unknown")
-    class_order = {"Trackers": 0, "Scouts": 1, "Trailblazers": 2}
+    active_filtered_kids, filtered_kid_ids, lesson_summary_df = get_kids_for_dashboard()
     groups = sorted(
         {kid.get("program_group") for kid in kids if kid.get("program_group")},
         key=lambda class_name: (
@@ -456,16 +519,9 @@ elif page == "Dashboard":
         for button, kid in zip(buttons, active_filtered_kids[start:start + 4]):
             if button.button(kid["name"], key=f"dashboard_kid_{kid['id']}"):
                 st.session_state["dashboard_kid_id"] = kid["id"]
-    st.subheader("Pin Tracker")
-    st.caption("Kids receive one pin for every five memorized regular or bonus verses.")
-    st.dataframe(
-        pd.DataFrame(pin_tracker_rows(active_filtered_kids)),
-        use_container_width=True,
-        hide_index=True,
-    )
     col1, col2, col3 = st.columns(3)
     col1.metric("Active Kids", sum(1 for kid in filtered_kids if kid.get("active", 1)))
-    col2.metric("Verses Assigned", len(verses))
+    col2.metric("Latest Lesson Completed", latest_occurred_lesson_number())
     if not lesson_summary_df.empty:
         col3.metric("Overall Memorized %", f"{round(100 * lesson_summary_df['memory_verses'].sum() / max(1, len(filtered_kids) * lesson_summary_df['total_lessons'].iloc[0]))}%")
         st.subheader("Progress by Kid")
@@ -503,11 +559,19 @@ elif page == "Manage Kids":
         st.subheader("Add a Kid")
         with st.form("add_kid", clear_on_submit=True):
             name = st.text_input("Name")
-            class_group = st.text_input("Class / Group (optional)")
-            program_group = st.selectbox("Program", ["Trackers", "Scouts", "Trailblazers"])
+            program_group = st.selectbox("Program Group", ["Trackers1", "Trackers2", "Trackers3", "Trackers4", "Scouts1", "Scouts2", "Trailblazers1", "Trailblazers2", "Trailblazers3"])
+            emergency_contact = st.text_area("Emergency Contact Info (optional)")
+            medical_notes = st.text_area("Medical Notes (optional)")
+            class_group = st.text_input("Game Group (optional)")
             if st.form_submit_button("Add Kid"):
                 if name.strip():
-                    add_record("kids", {"name": name.strip(), "class_group": class_group.strip() or None, "program_group": program_group, "active": 1})
+                    add_record("kids", {
+                        "name": name.strip(), 
+                        "class_group": class_group.strip() or None, 
+                        "program_group": program_group, 
+                        "emergency_contact": emergency_contact.strip() or None,
+                        "medical_notes": medical_notes.strip() or None,
+                        "active": 1})
                     st.success(f"Added {name}.")
                     st.rerun()
                 else:

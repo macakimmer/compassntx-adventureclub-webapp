@@ -570,6 +570,16 @@ elif page == "Record Progress by Week":
         (kid for kid in records("kids", "name") if kid.get("active", 1)),
         key=lambda kid: kid.get("name", "").casefold(),
     )
+    class_order = {"Trackers": 0, "Scouts": 1, "Trailblazers": 2}
+    classes = sorted(
+        {kid.get("program_group") for kid in all_kids if kid.get("program_group")},
+        key=lambda class_name: (
+            class_order.get(class_name.rstrip("1234567890"), len(class_order)),
+            int(class_name[len(class_name.rstrip("1234567890")): ] or 0),
+            class_name,
+        ),
+    )
+    classes.append("All")
     lessons = current_lessons()
     if not all_kids:
         st.info("Sync the roster or add a kid with a program group first.")
@@ -581,6 +591,8 @@ elif page == "Record Progress by Week":
             lessons,
             format_func=lambda lesson: f"{lesson['Date']} · {lesson['Lesson Number']} · {lesson['Lesson Title']}",
         )
+        selected_class = st.selectbox("Group", classes)
+        class_kids = all_kids if selected_class == "All" else [kid for kid in all_kids if kid.get("program_group") == selected_class]
         lesson_id = selected_lesson["Lesson Number"]
         lesson_date = selected_lesson["Date"]
         is_review_week = lesson_id.startswith("Review")
@@ -600,7 +612,7 @@ elif page == "Record Progress by Week":
                 unsafe_allow_html=True,
             )
             kid_results = {}
-            for kid in all_kids:
+            for kid in class_kids:
                 kid_id = kid["id"]
                 existing_progress = existing_lessons.get(lesson_progress_id(kid_id, lesson_id), {})
                 attendance_record = existing_attendance.get(f"att_{kid_id}_{lesson_date}", {})
@@ -631,12 +643,12 @@ elif page == "Record Progress by Week":
                         "Done", value=bool(existing_progress.get("memory_verse_completed", 0)),
                         key=f"week_memory_{kid_id}_{lesson_id}", label_visibility="collapsed",
                     )
-                    row_cols[5].markdown(esv_reference(selected_lesson["Memory Verse"], "progress-esv-reference"), unsafe_allow_html=True)
+                    row_cols[5].markdown(esv_reference(selected_lesson["Memory Verse"]), unsafe_allow_html=True)
                     bonus_checked = row_cols[6].checkbox(
                         "Done", value=bool(existing_progress.get("bonus_verse_completed", 0)),
                         key=f"week_bonus_{kid_id}_{lesson_id}", label_visibility="collapsed", disabled=not bonus_visible,
                     )
-                    row_cols[7].markdown(esv_reference(selected_lesson["Bonus Verse"], "progress-esv-reference"), unsafe_allow_html=True)
+                    row_cols[7].markdown(esv_reference(selected_lesson["Bonus Verse"]), unsafe_allow_html=True)
                 kid_results[kid_id] = {
                     "attendance": attendance_checked,
                     "central": central_checked,
@@ -646,7 +658,7 @@ elif page == "Record Progress by Week":
             st.markdown("</div>", unsafe_allow_html=True)
             if st.form_submit_button("Save Week Progress"):
                 recorded_on = date.today().isoformat()
-                for kid in all_kids:
+                for kid in class_kids:
                     kid_id = kid["id"]
                     result = kid_results[kid_id]
                     update_record(
@@ -864,10 +876,10 @@ elif page == "Record Progress by Kid":
                     central_checked = row_cols[2].checkbox("Done", value=bool(existing.get("central_truth_completed", 0)), key=central_truth_key, label_visibility="collapsed")
                     row_cols[3].markdown(render_reference_label(lesson["Central Truth"], lesson["Central Truth"]), unsafe_allow_html=True)
                     memory_checked = row_cols[4].checkbox("Done", value=bool(existing.get("memory_verse_completed", 0)), key=memory_key, label_visibility="collapsed")
-                    row_cols[5].markdown(esv_reference(lesson["Memory Verse"], "progress-esv-reference"), unsafe_allow_html=True)
+                    row_cols[5].markdown(esv_reference(lesson["Memory Verse"]), unsafe_allow_html=True)
                     if bonus_column_visible:
                         bonus_checked = row_cols[6].checkbox("Done", value=bool(existing.get("bonus_verse_completed", 0)), key=bonus_key, label_visibility="collapsed", disabled=not bonus_enabled)
-                        row_cols[7].markdown(esv_reference(lesson["Bonus Verse"], "progress-esv-reference"), unsafe_allow_html=True)
+                        row_cols[7].markdown(esv_reference(lesson["Bonus Verse"]), unsafe_allow_html=True)
                     else:
                         bonus_checked = False
                 lesson_results[lesson_id] = {"attendance": attendance_checked, "central": central_checked, "memory": memory_checked, "bonus": bonus_checked, "date": lesson_date}

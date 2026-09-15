@@ -267,7 +267,7 @@ def render_lesson_reference():
         .lesson-table thead { display: table-header-group; }
         .lesson-table th { background: #285257 !important; color: white !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
         .esv-reference { color: white !important; cursor: default; position: relative; text-decoration: underline dotted; }
-        .esv-reference .esv-reference-tooltip { background: white; border: 0; border-radius: 0.35rem; box-sizing: border-box; color: black !important; display: none !important; font-size: 0.85rem; font-weight: normal; left: 50%; line-height: 1.45; max-width: calc(100vw - 1rem); padding: 0.7rem; position: absolute; top: calc(100% + 0.35rem); transform: translateX(-50%); white-space: normal; width: min(28rem, calc(100vw - 1rem)); overflow-wrap: anywhere; z-index: 10; }
+        .esv-reference .esv-reference-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none !important; font-size: .85rem; font-weight: normal; top: 100%; left: 50%; transform: translateX(-50%); line-height: 1.45; padding: .7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
         .esv-reference:hover .esv-reference-tooltip, .esv-reference:focus .esv-reference-tooltip { display: block !important; }
         </style>
         """,
@@ -475,7 +475,8 @@ else:
 
 st.title(f"📖 {APP_TITLE}")
 page = st.sidebar.radio("Navigate", [
-    "Record Progress", 
+    "Record Progress by Kid", 
+    "Record Progress by Week",
     "Dashboard", 
     "Game Groups", 
     "Lesson Reference", 
@@ -545,6 +546,129 @@ elif page == "Dashboard":
             if button.button(kid["name"], key=f"dashboard_kid_{kid['id']}"):
                 st.session_state["dashboard_kid_id"] = kid["id"]
 
+elif page == "Record Progress by Week":
+    # reminder of class expectations each week
+    st.subheader("Small Groups Checklist")
+    st.markdown(
+        """
+        - ✅ Pray
+        - ✅ Take Attendance
+        - ✅ Review Central Truth
+        - ✅ Record (Central Truth, Memory Verse [Bonus Verse for Scouts & Trailblazers])
+            - Select your group in filter below 
+            - Select the Lesson Week in the second filter below
+            - Check off where completed (check boxes come before the text) - BE SURE TO CLICK THE "SAVE LESSON PROGRESS" BUTTON AT THE BOTTOM OF THE SCREEN WHEN DONE
+            - Put a sticker from your leader's book to kid's book for memory verse completed
+        - ✅ Lesson Activities
+        - ✅ Share Prayer Requests
+        - ✅ Build Relationships, Foster Group Fellowship
+        """
+    )
+    st.subheader("Record Progress by Week")
+    st.caption("Select a week, then record attendance and completed lesson requirements for every active kid.")
+    all_kids = sorted(
+        (kid for kid in records("kids", "name") if kid.get("active", 1)),
+        key=lambda kid: kid.get("name", "").casefold(),
+    )
+    lessons = current_lessons()
+    if not all_kids:
+        st.info("Sync the roster or add a kid with a program group first.")
+    elif not lessons:
+        st.info("No lessons are available.")
+    else:
+        selected_lesson = st.selectbox(
+            "Week",
+            lessons,
+            format_func=lambda lesson: f"{lesson['Date']} · {lesson['Lesson Number']} · {lesson['Lesson Title']}",
+        )
+        lesson_id = selected_lesson["Lesson Number"]
+        lesson_date = selected_lesson["Date"]
+        is_review_week = lesson_id.startswith("Review")
+        existing_lessons = {
+            row["id"]: row for row in records("lesson_progress")
+        }
+        existing_attendance = {
+            row["id"]: row for row in records("attendance")
+        }
+        bonus_enabled_for = lambda kid: kid.get("program_group", "").startswith(("Scouts", "Trailblazers"))
+
+        with st.form("record_progress_by_week"):
+            st.markdown(
+                "<div class='progress-grid'><div class='progress-grid-header has-bonus'>"
+                "<span>Kid</span><span>Attendance</span><span></span><span>Central Truth</span>"
+                "<span></span><span>Memory Verse</span><span></span><span>Bonus Verse</span></div>",
+                unsafe_allow_html=True,
+            )
+            kid_results = {}
+            for kid in all_kids:
+                kid_id = kid["id"]
+                existing_progress = existing_lessons.get(lesson_progress_id(kid_id, lesson_id), {})
+                attendance_record = existing_attendance.get(f"att_{kid_id}_{lesson_date}", {})
+                bonus_visible = bonus_enabled_for(kid)
+                row_cols = st.columns([2.3, 1.15, .55, 1.8, .55, 1.2, .55, 1.2])
+                row_cols[0].markdown(
+                    f"<strong>{html.escape(kid.get('name', ''))}</strong><br><small>{html.escape(kid.get('program_group', '') or '')}</small>",
+                    unsafe_allow_html=True,
+                )
+                attendance_checked = row_cols[1].checkbox(
+                    "Attendance",
+                    value=bool(attendance_record.get("present", 0)),
+                    key=f"week_attendance_{kid_id}_{lesson_id}",
+                )
+                if is_review_week:
+                    central_checked = False
+                    memory_checked = False
+                    bonus_checked = False
+                    for placeholder in row_cols[2:]:
+                        placeholder.markdown("&nbsp;", unsafe_allow_html=True)
+                else:
+                    central_checked = row_cols[2].checkbox(
+                        "Done", value=bool(existing_progress.get("central_truth_completed", 0)),
+                        key=f"week_central_{kid_id}_{lesson_id}", label_visibility="collapsed",
+                    )
+                    row_cols[3].markdown(render_reference_label(selected_lesson["Central Truth"], selected_lesson["Central Truth"]), unsafe_allow_html=True)
+                    memory_checked = row_cols[4].checkbox(
+                        "Done", value=bool(existing_progress.get("memory_verse_completed", 0)),
+                        key=f"week_memory_{kid_id}_{lesson_id}", label_visibility="collapsed",
+                    )
+                    row_cols[5].markdown(esv_reference(selected_lesson["Memory Verse"], "progress-esv-reference"), unsafe_allow_html=True)
+                    bonus_checked = row_cols[6].checkbox(
+                        "Done", value=bool(existing_progress.get("bonus_verse_completed", 0)),
+                        key=f"week_bonus_{kid_id}_{lesson_id}", label_visibility="collapsed", disabled=not bonus_visible,
+                    )
+                    row_cols[7].markdown(esv_reference(selected_lesson["Bonus Verse"], "progress-esv-reference"), unsafe_allow_html=True)
+                kid_results[kid_id] = {
+                    "attendance": attendance_checked,
+                    "central": central_checked,
+                    "memory": memory_checked,
+                    "bonus": bonus_checked,
+                }
+            st.markdown("</div>", unsafe_allow_html=True)
+            if st.form_submit_button("Save Week Progress"):
+                recorded_on = date.today().isoformat()
+                for kid in all_kids:
+                    kid_id = kid["id"]
+                    result = kid_results[kid_id]
+                    update_record(
+                        "attendance",
+                        f"att_{kid_id}_{lesson_date}",
+                        {"kid_id": kid_id, "date_recorded": lesson_date, "present": int(result["attendance"])},
+                    )
+                    update_record(
+                        "lesson_progress",
+                        lesson_progress_id(kid_id, lesson_id),
+                        {
+                            "kid_id": kid_id,
+                            "lesson_number": lesson_id,
+                            "central_truth_completed": int(result["central"]),
+                            "memory_verse_completed": int(result["memory"]),
+                            "bonus_verse_completed": int(result["bonus"]) if bonus_enabled_for(kid) else 0,
+                            "date_recorded": recorded_on,
+                        },
+                    )
+                st.success("Week progress saved.")
+                st.rerun()
+
 elif page == "Manage Kids":
     if not is_verified:
         st.warning("Enable Teacher Mode and enter the teacher PIN to manage kids.")
@@ -585,7 +709,7 @@ elif page == "Manage Kids":
                 update_record("kids", kid["id"], {"active": 0 if kid.get("active", 1) else 1})
                 st.rerun()
 
-elif page == "Record Progress":
+elif page == "Record Progress by Kid":
     # reminder of class expectations each week
     st.subheader("Small Groups Checklist")
     st.markdown(

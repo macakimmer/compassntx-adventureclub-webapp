@@ -267,7 +267,7 @@ def render_lesson_reference():
         .lesson-table thead { display: table-header-group; }
         .lesson-table th { background: #285257 !important; color: white !important; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
         .esv-reference { color: white !important; cursor: default; position: relative; text-decoration: underline dotted; }
-        .esv-reference .esv-reference-tooltip { background: white; border: 0; border-radius: 0.35rem; bottom: 1.6rem; color: black !important; display: none !important; font-size: 0.85rem; font-weight: normal; top: 100%; left: 50%;  line-height: 1.45; padding: 0.7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; } /*transform: translateX(-50%);*/
+        .esv-reference .esv-reference-tooltip { background: white; border: 0; border-radius: 0.35rem; box-sizing: border-box; color: black !important; display: none !important; font-size: 0.85rem; font-weight: normal; left: 50%; line-height: 1.45; max-width: calc(100vw - 1rem); padding: 0.7rem; position: absolute; top: calc(100% + 0.35rem); transform: translateX(-50%); white-space: normal; width: min(28rem, calc(100vw - 1rem)); overflow-wrap: anywhere; z-index: 10; }
         .esv-reference:hover .esv-reference-tooltip, .esv-reference:focus .esv-reference-tooltip { display: block !important; }
         </style>
         """,

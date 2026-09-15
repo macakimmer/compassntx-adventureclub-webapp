@@ -219,4 +219,6 @@ __marimo__/
 
 firebase-key.json
 sheets-key.json
+ac-firebase-key.json
+launch.json
 debug*

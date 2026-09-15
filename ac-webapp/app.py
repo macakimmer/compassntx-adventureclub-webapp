@@ -420,6 +420,19 @@ def date_key(d):
         return d.astimezone(CENTRAL).date().isoformat()
     return str(d)[:10]
 
+def date_format(d):
+    d0 = d.split('-')
+    dateFormatted = d0[1] + '/' + d0[2] + '/' + d0[0][-2:]
+    return dateFormatted
+
+def lessonNumber_format(l):
+    l0 = l.split('L')
+    if len(l0) > 1:
+        lessonFormatted = 'Lesson ' + l0[1]
+    else:
+        lessonFormatted = l
+    return lessonFormatted
+
 def latest_occurred_lesson_number():
     """The single most recently occurred lesson_number (on or before today,
     excluding Review weeks) -- picked by actual date, not by sorting the
@@ -475,8 +488,8 @@ else:
 
 st.title(f"📖 {APP_TITLE}")
 page = st.sidebar.radio("Navigate", [
-    "Record Progress by Kid", 
     "Record Progress by Week",
+    "Record Progress by Kid", 
     "Dashboard", 
     "Game Groups", 
     "Lesson Reference", 
@@ -555,8 +568,8 @@ elif page == "Record Progress by Week":
         - ✅ Take Attendance
         - ✅ Review Central Truth
         - ✅ Record (Central Truth, Memory Verse [Bonus Verse for Scouts & Trailblazers])
-            - Select your group in filter below 
-            - Select the Lesson Week in the second filter below
+            - Select the Lesson Week in the filter below
+            - Select your group in the second filter below 
             - Check off where completed (check boxes come before the text) - BE SURE TO CLICK THE "SAVE LESSON PROGRESS" BUTTON AT THE BOTTOM OF THE SCREEN WHEN DONE
             - Put a sticker from your leader's book to kid's book for memory verse completed
         - ✅ Lesson Activities
@@ -581,6 +594,7 @@ elif page == "Record Progress by Week":
     )
     classes.append("All")
     lessons = current_lessons()
+    st.markdown('<div id="record-progress-top"></div>', unsafe_allow_html=True)
     if not all_kids:
         st.info("Sync the roster or add a kid with a program group first.")
     elif not lessons:
@@ -589,7 +603,7 @@ elif page == "Record Progress by Week":
         selected_lesson = st.selectbox(
             "Week",
             lessons,
-            format_func=lambda lesson: f"{lesson['Date']} · {lesson['Lesson Number']} · {lesson['Lesson Title']}",
+            format_func=lambda lesson: f"{date_format(lesson['Date'])} · {lessonNumber_format(lesson['Lesson Number'])} · {lesson['Lesson Title']}",
         )
         selected_class = st.selectbox("Group", classes)
         class_kids = all_kids if selected_class == "All" else [kid for kid in all_kids if kid.get("program_group") == selected_class]
@@ -603,12 +617,81 @@ elif page == "Record Progress by Week":
             row["id"]: row for row in records("attendance")
         }
         bonus_enabled_for = lambda kid: kid.get("program_group", "").startswith(("Scouts", "Trailblazers"))
+        bonus_column_visible = selected_class not in {"Trackers1", "Trackers2", "Trackers3", "Trackers4"}
+        st.markdown(
+            """
+            <style>
+            .progress-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .progress-grid-header, .progress-grid-row { align-items: center; display: grid; gap: .5rem; min-width: 760px; }
+            .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: 2.3fr 1.15fr .55fr 1.8fr .55fr 1.2fr .55fr 1.2fr; min-width: 940px; }
+            .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: 2.3fr 1.15fr .55fr 1.8fr .55fr 1.2fr; }
+            .progress-grid-header { background: #dce8ec; border: 1px solid #81959e; color: #162b33; font-weight: 700; padding: .55rem; }
+            .progress-grid-row { border-bottom: 1px solid #9eafb8; padding: .35rem .55rem; }
+            .progress-grid-row span[title], .progress-esv-reference { cursor: default; text-decoration: underline dotted; }
+            /* display: inline-block */
+            .progress-esv-reference { color: white !important; cursor: default; position: relative; text-decoration: underline dotted; }
+            .progress-esv-reference .progress-esv-reference-tooltip { background: #1f2937; border-radius: .35rem; bottom: 1.6rem; color: white; display: none !important; font-size: .85rem; font-weight: normal; top: 100%; left: 50%; transform: translateX(-50%); line-height: 1.45; padding: .7rem; position: absolute; white-space: normal; width: min(28rem, 70vw); z-index: 10; }
+            .progress-esv-reference:hover .progress-esv-reference-tooltip, .progress-esv-reference:focus .progress-esv-reference-tooltip { display: block !important; }
+
+            /* Sticky first column so context (reference/name) stays visible while scrolling horizontally */
+            .progress-grid-header > *:first-child, .progress-grid-row > *:first-child {
+                background: inherit;
+                left: 0;
+                position: sticky;
+                z-index: 2;
+            }
+            .progress-grid-row > *:first-child { background: #fff; }
+
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] { border-bottom: 1px solid #81959e; border-left: 1px solid #81959e; border-right: 1px solid #81959e; padding: .35rem .25rem; }
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-right: 1px solid #9eafb8; min-height: 2.5rem; padding: 0 .35rem; }
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child { border-right: 0; }
+
+            [data-testid="stFormSubmitButton"] { bottom: 1rem; position: fixed; right: 2rem; z-index: 1000; }
+            [data-testid="stFormSubmitButton"] button { box-shadow: 0 3px 12px rgba(22, 43, 51, .28); }
+
+            .record-progress-top-link { background: #356b70; border-radius: .35rem; color: white !important; display: inline; font-weight: 700; margin: 1rem 0 2rem; padding: .55rem 1rem; text-decoration: none !important; }
+            .record-progress-top-link:hover { background: #285257; }
+
+            /* Tablet / small screens */
+            @media (max-width: 768px) {
+                [data-testid="stForm"] { max-width: 100%; overflow-x: visible; }
+                [data-testid="stForm"] [data-testid="stHorizontalBlock"] { min-width: 0; width: 100%; }
+                .progress-grid-header, .progress-grid-row { min-width: 0; width: 100%; overflow-wrap: anywhere; }
+                .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: minmax(0, 1.7fr) minmax(0, .9fr) minmax(1.4rem, .45fr) minmax(0, 1.25fr) minmax(1.4rem, .45fr) minmax(0, 1.15fr) minmax(1.4rem, .45fr) minmax(0, 1.15fr); }
+                .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: minmax(0, 1.7fr) minmax(0, .9fr) minmax(1.4rem, .45fr) minmax(0, 1.25fr) minmax(1.4rem, .45fr) minmax(0, 1.15fr); }
+            }
+
+            /* Phones */
+            @media (max-width: 480px) {
+                .progress-grid-header, .progress-grid-row { font-size: .7rem; gap: .2rem; padding: .25rem; }
+                .progress-grid-header.has-bonus, .progress-grid-row.has-bonus { grid-template-columns: minmax(0, 1.45fr) minmax(0, .85fr) minmax(1.25rem, .4fr) minmax(0, 1.05fr) minmax(1.25rem, .4fr) minmax(0, .95fr) minmax(1.25rem, .4fr) minmax(0, .95fr); }
+                .progress-grid-header.no-bonus, .progress-grid-row.no-bonus { grid-template-columns: minmax(0, 1.45fr) minmax(0, .85fr) minmax(1.25rem, .4fr) minmax(0, 1.05fr) minmax(1.25rem, .4fr) minmax(0, .95fr); }
+                .progress-esv-reference .progress-esv-reference-tooltip { width: min(20rem, 85vw); left: -1rem; }
+
+                /* Bigger tap targets for checkboxes/buttons inside rows */
+                .progress-grid-row input[type="checkbox"], .progress-grid-row button {
+                    min-height: 1.6rem;
+                    min-width: 1.6rem;
+                }
+    
+                /* Keep the Save control floating while leaving room for mobile content. */
+                [data-testid="stFormSubmitButton"] {
+                    bottom: env(safe-area-inset-bottom, 0);
+                    left: .65rem;
+                    position: fixed;
+                    right: .65rem;
+                    width: auto;
+                }
+                [data-testid="stFormSubmitButton"] button { width: 100%; }
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
 
         with st.form("record_progress_by_week"):
             st.markdown(
-                "<div class='progress-grid'><div class='progress-grid-header has-bonus'>"
-                "<span>Kid</span><span>Attendance</span><span></span><span>Central Truth</span>"
-                "<span></span><span>Memory Verse</span><span></span><span>Bonus Verse</span></div>",
+                f"<div class='progress-grid'><div class='progress-grid-header {'has-bonus' if bonus_column_visible else 'no-bonus'}'><span>Week</span><span>Attendance</span><span></span><span>Central Truth</span><span></span><span>Memory Verse</span>{'<span></span><span>Bonus Verse</span>' if bonus_column_visible else ''}</div>",
                 unsafe_allow_html=True,
             )
             kid_results = {}
@@ -616,6 +699,7 @@ elif page == "Record Progress by Week":
                 kid_id = kid["id"]
                 existing_progress = existing_lessons.get(lesson_progress_id(kid_id, lesson_id), {})
                 attendance_record = existing_attendance.get(f"att_{kid_id}_{lesson_date}", {})
+                bonus_key = f"bonus_{kid_id}_{lesson_id}"
                 bonus_visible = bonus_enabled_for(kid)
                 row_cols = st.columns([2.3, 1.15, .55, 1.8, .55, 1.2, .55, 1.2])
                 row_cols[0].markdown(
@@ -643,12 +727,12 @@ elif page == "Record Progress by Week":
                         "Done", value=bool(existing_progress.get("memory_verse_completed", 0)),
                         key=f"week_memory_{kid_id}_{lesson_id}", label_visibility="collapsed",
                     )
-                    row_cols[5].markdown(esv_reference(selected_lesson["Memory Verse"]), unsafe_allow_html=True)
-                    bonus_checked = row_cols[6].checkbox(
-                        "Done", value=bool(existing_progress.get("bonus_verse_completed", 0)),
-                        key=f"week_bonus_{kid_id}_{lesson_id}", label_visibility="collapsed", disabled=not bonus_visible,
-                    )
-                    row_cols[7].markdown(esv_reference(selected_lesson["Bonus Verse"]), unsafe_allow_html=True)
+                    row_cols[5].markdown(render_reference_label(selected_lesson["Memory Verse"], selected_lesson["Memory Verse"]), unsafe_allow_html=True)
+                    if bonus_column_visible:
+                        bonus_checked = row_cols[6].checkbox("Done", value=bool(existing_progress.get("bonus_verse_completed", 0)), key=bonus_key, label_visibility="collapsed", disabled=not bonus_visible)
+                        row_cols[7].markdown(render_reference_label(selected_lesson["Bonus Verse"], selected_lesson["Bonus Verse"]), unsafe_allow_html=True)
+                    else:
+                        bonus_checked = False
                 kid_results[kid_id] = {
                     "attendance": attendance_checked,
                     "central": central_checked,
@@ -680,6 +764,7 @@ elif page == "Record Progress by Week":
                     )
                 st.success("Week progress saved.")
                 st.rerun()
+            st.markdown('<a class="record-progress-top-link" href="#record-progress-top">Top</a>', unsafe_allow_html=True)
 
 elif page == "Manage Kids":
     if not is_verified:
@@ -854,7 +939,7 @@ elif page == "Record Progress by Kid":
             )
             lesson_results = {}
             for lesson in current_lessons():
-                lesson_id = lesson["Lesson Number"]
+                lesson_id = lessonNumber_format(lesson["Lesson Number"])
                 is_review_week = lesson_id.startswith("Review")
                 existing = existing_lessons.get(lesson_progress_id(selected_kid_id, lesson_id), {})
                 lesson_date = lesson["Date"]
@@ -864,7 +949,7 @@ elif page == "Record Progress by Kid":
                 attendance_key = f"lesson_attendance_{selected_kid_id}_{lesson_id}"
                 column_widths = [2.3, 1.15, .55, 1.8, .55, 1.2, .55, 1.2] if bonus_column_visible else [2.3, 1.15, .55, 1.8, .55, 1.2]
                 row_cols = st.columns(column_widths)
-                row_cols[0].markdown(render_reference_label(f"{lesson['Date']} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
+                row_cols[0].markdown(render_reference_label(f"{date_format(lesson['Date'])} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
                 attendance_checked = row_cols[1].checkbox("Attendance", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key)
                 if is_review_week:
                     central_checked = False
@@ -876,10 +961,10 @@ elif page == "Record Progress by Kid":
                     central_checked = row_cols[2].checkbox("Done", value=bool(existing.get("central_truth_completed", 0)), key=central_truth_key, label_visibility="collapsed")
                     row_cols[3].markdown(render_reference_label(lesson["Central Truth"], lesson["Central Truth"]), unsafe_allow_html=True)
                     memory_checked = row_cols[4].checkbox("Done", value=bool(existing.get("memory_verse_completed", 0)), key=memory_key, label_visibility="collapsed")
-                    row_cols[5].markdown(esv_reference(lesson["Memory Verse"]), unsafe_allow_html=True)
+                    row_cols[5].markdown(render_reference_label(lesson["Memory Verse"],lesson["Memory Verse"]), unsafe_allow_html=True)
                     if bonus_column_visible:
                         bonus_checked = row_cols[6].checkbox("Done", value=bool(existing.get("bonus_verse_completed", 0)), key=bonus_key, label_visibility="collapsed", disabled=not bonus_enabled)
-                        row_cols[7].markdown(esv_reference(lesson["Bonus Verse"]), unsafe_allow_html=True)
+                        row_cols[7].markdown(render_reference_label(lesson["Bonus Verse"], lesson["Bonus Verse"]), unsafe_allow_html=True)
                     else:
                         bonus_checked = False
                 lesson_results[lesson_id] = {"attendance": attendance_checked, "central": central_checked, "memory": memory_checked, "bonus": bonus_checked, "date": lesson_date}

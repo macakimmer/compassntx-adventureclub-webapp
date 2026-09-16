@@ -939,7 +939,7 @@ elif page == "Record Progress by Kid":
             )
             lesson_results = {}
             for lesson in current_lessons():
-                lesson_id = lessonNumber_format(lesson["Lesson Number"])
+                lesson_id = lesson["Lesson Number"]
                 is_review_week = lesson_id.startswith("Review")
                 existing = existing_lessons.get(lesson_progress_id(selected_kid_id, lesson_id), {})
                 lesson_date = lesson["Date"]
@@ -949,7 +949,7 @@ elif page == "Record Progress by Kid":
                 attendance_key = f"lesson_attendance_{selected_kid_id}_{lesson_id}"
                 column_widths = [2.3, 1.15, .55, 1.8, .55, 1.2, .55, 1.2] if bonus_column_visible else [2.3, 1.15, .55, 1.8, .55, 1.2]
                 row_cols = st.columns(column_widths)
-                row_cols[0].markdown(render_reference_label(f"{date_format(lesson['Date'])} · {lesson_id} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
+                row_cols[0].markdown(render_reference_label(f"{date_format(lesson['Date'])} · {lessonNumber_format(lesson_id)} · {lesson['Lesson Title']}", lesson["Lesson Title"]), unsafe_allow_html=True)
                 attendance_checked = row_cols[1].checkbox("Attendance", value=bool(existing_attendance.get(lesson_date, {}).get("present", 0)), key=attendance_key)
                 if is_review_week:
                     central_checked = False

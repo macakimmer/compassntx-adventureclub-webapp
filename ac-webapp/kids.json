@@ -356,11 +356,11 @@
   ],
   "Trailblazers1": [
     {
-      "id": 60,
-      "name": "Benjamin Vartanian",
-      "emergency_contact": "Monique Vartanian - (562) 881-1818",
+      "id": 81,
+      "name": "Brayden Bocachica",
+      "emergency_contact": "",
       "medical_notes": "",
-      "game_group": "blue"
+      "game_group": "red"
     },
     {
       "id": 80,
@@ -391,13 +391,6 @@
       "game_group": "green"
     },
     {
-      "id": 51,
-      "name": "Israel Elsemri",
-      "emergency_contact": "Lauren Elsemri - (949) 648-1674",
-      "medical_notes": "gluten, cashews",
-      "game_group": "yellow"
-    },
-    {
       "id": 23,
       "name": "Jonathan Berner",
       "emergency_contact": "Amanda Berner - (619) 840-4863",
@@ -405,18 +398,41 @@
       "game_group": "blue"
     },
     {
-      "id": 40,
-      "name": "Josiah Paone",
-      "emergency_contact": "Bailey Paone - (702) 277-1174",
-      "medical_notes": "",
-      "game_group": "green"
-    },
-    {
       "id": 77,
       "name": "Lucas Dieringer",
       "emergency_contact": "Jason Dieringer - (214) 604-4309",
       "medical_notes": "",
       "game_group": "blue"
+    },
+    {
+      "id": 24,
+      "name": "Samuel Berner",
+      "emergency_contact": "Amanda Berner - (619) 840-4863",
+      "medical_notes": "",
+      "game_group": "red"
+    }
+  ],
+  "Trailblazers3": [
+    {
+      "id": 60,
+      "name": "Benjamin Vartanian",
+      "emergency_contact": "Monique Vartanian - (562) 881-1818",
+      "medical_notes": "",
+      "game_group": "blue"
+    },
+    {
+      "id": 51,
+      "name": "Israel Elsemri",
+      "emergency_contact": "Lauren Elsemri - (949) 648-1674",
+      "medical_notes": "gluten, cashews",
+      "game_group": "yellow"
+    },
+    {
+      "id": 40,
+      "name": "Josiah Paone",
+      "emergency_contact": "Bailey Paone - (702) 277-1174",
+      "medical_notes": "",
+      "game_group": "green"
     },
     {
       "id": 25,
@@ -438,13 +454,6 @@
       "emergency_contact": "Lia DiBlasi - (972) 971-9188",
       "medical_notes": "",
       "game_group": "yellow"
-    },
-    {
-      "id": 24,
-      "name": "Samuel Berner",
-      "emergency_contact": "Amanda Berner - (619) 840-4863",
-      "medical_notes": "",
-      "game_group": "red"
     },
     {
       "id": 4,

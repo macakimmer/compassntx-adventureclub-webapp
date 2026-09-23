@@ -379,14 +379,25 @@ def pin_tracker_rows(kids):
         verse_counts[kid_id] += int(progress.get("memory_verse_completed", 0))
         verse_counts[kid_id] += int(progress.get("bonus_verse_completed", 0))
 
+    # pin_awards: doc id == kid_id, field "pins_awarded" = count physically handed out
+    pins_awarded_by_kid = {
+        row["id"]: int(row.get("pins_awarded", 0))
+        for row in records("pin_awards")
+    }
+
     rows = []
     for kid in kids:
         completed_verses = verse_counts.get(kid["id"], 0)
+        pins_earned = completed_verses // 5
+        pins_awarded = pins_awarded_by_kid.get(kid["id"], 0)
         rows.append({
+            "kid_id": kid["id"],
             "Name": kid.get("name", ""),
             "Completed Verses": completed_verses,
-            "Pins Received": completed_verses // 5,
+            "Pins Earned": pins_earned,
             "Verses Until Next Pin": 5 - (completed_verses % 5),
+            "Pins Awarded": pins_awarded,
+            "Pins Owed": max(0, pins_earned - pins_awarded),
         })
     return rows
 
@@ -513,11 +524,44 @@ elif page == "Pin Tracker":
     filtered_kid_ids = {kid["id"] for kid in filtered_kids}
     lesson_summary_df = dashboard_lesson_summary(filtered_kids)
     active_filtered_kids = sorted((kid for kid in filtered_kids if kid.get("active", 1)), key=lambda kid: kid["name"])
-    st.dataframe(
-        pd.DataFrame(pin_tracker_rows(active_filtered_kids)),
-        use_container_width=True,
-        hide_index=True,
-    )
+
+    pin_df = pd.DataFrame(pin_tracker_rows(active_filtered_kids))
+    display_columns = ["Name", "Completed Verses", "Pins Earned", "Verses Until Next Pin", "Pins Awarded", "Pins Owed"]
+
+    if is_verified:
+        st.caption("Check off pins as you physically hand them out, then click **Save Pins Awarded**.")
+        edited_df = st.data_editor(
+            pin_df,
+            use_container_width=True,
+            hide_index=True,
+            column_order=display_columns,
+            column_config={
+                "kid_id": None,
+                "Name": st.column_config.TextColumn(disabled=True),
+                "Completed Verses": st.column_config.NumberColumn(disabled=True),
+                "Pins Earned": st.column_config.NumberColumn(disabled=True, help="Earned so far, based on verse count (1 pin per 5 verses)."),
+                "Verses Until Next Pin": st.column_config.NumberColumn(disabled=True),
+                "Pins Awarded": st.column_config.NumberColumn(min_value=0, step=1, help="How many pins have been handed out to this kid."),
+                "Pins Owed": st.column_config.NumberColumn(disabled=True, help="Pins Earned minus Pins Awarded. Recalculates after you save."),
+            },
+            key="pin_tracker_editor",
+        )
+        if st.button("Save Pins Awarded"):
+            for row in edited_df.to_dict("records"):
+                update_record(
+                    "pin_awards",
+                    row["kid_id"],
+                    {"kid_id": row["kid_id"], "pins_awarded": int(row["Pins Awarded"])},
+                )
+            st.success("Pins awarded saved.")
+            st.rerun()
+    else:
+        st.dataframe(
+            pin_df[display_columns],
+            use_container_width=True,
+            hide_index=True,
+        )
+        st.info("Enable Teacher Mode and enter the teacher PIN to update pins awarded.")
 
 elif page == "Dashboard":
     kids, groups, class_order, roster_groups = get_kids_for_dashboard()
@@ -854,7 +898,7 @@ elif page == "Record Progress by Kid":
             row.get("date_recorded"): row for row in records("attendance")
             if row.get("kid_id") == selected_kid_id
         }
-        bonus_classes = {"Scouts1", "Scouts2", "Trailblazers1", "Trailblazers2"}
+        bonus_classes = {"Scouts1", "Scouts2", "Trailblazers1", "Trailblazers2", "Trailblazers3"}
         selected_kid = next(kid for kid in class_kids if kid["id"] == selected_kid_id)
         bonus_enabled = selected_kid.get("program_group") in bonus_classes
         bonus_column_visible = selected_class not in {"Trackers1", "Trackers2", "Trackers3", "Trackers4"}
